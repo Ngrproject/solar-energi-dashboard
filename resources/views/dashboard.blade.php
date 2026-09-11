@@ -97,7 +97,7 @@
 </head>
 <body class="min-h-screen pb-12 antialiased selection:bg-sky-500 selection:text-white">
 
-    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+    <div x-data="{ activeTab: 'dashboard' }" class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
 
         <!-- HEADER BAR -->
         <header class="flex flex-col md:flex-row md:items-center md:justify-between pb-6 border-b border-gray-800/80 gap-4">
@@ -142,9 +142,39 @@
             </div>
         </header>
 
+        <!-- PAGE NAVIGATION TABS BAR (PAGE 1: DASHBOARD, PAGE 2: DATA ENERGI) -->
+        <nav class="flex items-center gap-2 my-6 bg-gray-900/80 p-1.5 rounded-2xl max-w-md border border-gray-800">
+            <button 
+                @click="activeTab = 'dashboard'"
+                :class="activeTab === 'dashboard' ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 font-bold scale-[1.02]' : 'text-gray-400 hover:text-white hover:bg-gray-800/60 font-semibold'"
+                class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs transition-all duration-200"
+            >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                </svg>
+                Dashboard
+            </button>
+
+            <button 
+                @click="activeTab = 'data'"
+                :class="activeTab === 'data' ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 font-bold scale-[1.02]' : 'text-gray-400 hover:text-white hover:bg-gray-800/60 font-semibold'"
+                class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs transition-all duration-200"
+            >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+                </svg>
+                Data Energi
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-800 text-sky-400 border border-sky-500/20 font-bold">
+                    {{ $paginatedLogs->total() }}
+                </span>
+            </button>
+        </nav>
+
+        <!-- PAGE 1: DASHBOARD VIEW (DIAGNOSTICS, SUMMARY CARDS, ECHARTS) -->
+        <main x-show="activeTab === 'dashboard'" class="space-y-6">
 
         <!-- 1. SYSTEM DIAGNOSTIC & HEALTH PANEL (TOP WIDGET BAR) -->
-        <section class="mt-6">
+        <section class="mt-2">
             <div class="glass-card rounded-2xl p-4 sm:p-5">
                 <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-800">
                     <span class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
@@ -389,10 +419,12 @@
             </div>
 
         </section>
+        </main>
 
 
-        <!-- 4. DATA TABLE & CSV EXPORTER SECTION -->
-        <section class="mt-8">
+        <!-- PAGE 2: DATA ENERGI VIEW (DATA TABLE & CSV EXPORTER SECTION) -->
+        <main x-show="activeTab === 'data'">
+        <section class="mt-2">
             <div class="glass-card rounded-2xl p-5 sm:p-6">
                 
                 <!-- Filter Bar & Export CSV Trigger -->
@@ -495,13 +527,29 @@
                     </table>
                 </div>
 
-                <!-- Custom Pagination Links -->
-                <div class="mt-4">
-                    {{ $paginatedLogs->links() }}
+                <!-- Custom Pagination Links & Per Page Selector Below Data Table -->
+                <div class="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-gray-800/80 pt-4">
+                    <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
+                        <input type="hidden" name="date_from" value="{{ $dateFrom }}">
+                        <input type="hidden" name="date_to" value="{{ $dateTo }}">
+                        <div class="flex items-center gap-1.5 bg-gray-900/80 px-3 py-1.5 rounded-xl border border-gray-800 text-xs font-semibold text-gray-300">
+                            <label class="text-xs text-gray-400 font-medium">Tampilkan:</label>
+                            <select name="per_page" onchange="this.form.submit()" class="bg-transparent text-xs text-sky-400 font-bold focus:outline-none cursor-pointer font-mono">
+                                <option value="15" {{ $perPage == 15 ? 'selected' : '' }}>15 / hal</option>
+                                <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50 / hal</option>
+                                <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100 / hal</option>
+                            </select>
+                        </div>
+                    </form>
+
+                    <div>
+                        {{ $paginatedLogs->links() }}
+                    </div>
                 </div>
 
             </div>
         </section>
+        </main>
 
         <!-- FOOTER -->
         <footer class="mt-12 text-center text-xs text-gray-500 border-t border-gray-800/80 pt-6">

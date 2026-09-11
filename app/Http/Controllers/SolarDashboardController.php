@@ -32,7 +32,10 @@ class SolarDashboardController extends Controller
         $dateFrom = $request->query('date_from', Carbon::now()->subDays(2)->format('Y-m-d'));
         $dateTo = $request->query('date_to', Carbon::now()->format('Y-m-d'));
         $page = (int) $request->query('page', 1);
-        $perPage = 15;
+        $perPage = (int) $request->query('per_page', 15);
+        if (!in_array($perPage, [15, 50, 100])) {
+            $perPage = 15;
+        }
 
         $isFallbackData = false;
         $errorMessage = null;
@@ -115,6 +118,7 @@ class SolarDashboardController extends Controller
             'paginatedLogs'  => $paginatedLogs,
             'dateFrom'       => $dateFrom,
             'dateTo'         => $dateTo,
+            'perPage'        => $perPage,
             'isFallbackData' => $isFallbackData,
             'errorMessage'   => $errorMessage,
         ]);

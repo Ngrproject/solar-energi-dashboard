@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { RefreshCw, CheckCircle2, AlertTriangle, BellRing, Layers } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertTriangle, BellRing, Layers, LayoutDashboard, Database } from 'lucide-react';
 import { fetchSolarLogs, calculateDiagnostics, getAvailableSheetOptions } from './services/solarService';
 import logoImg from './assets/logo.png';
 import RealTimeClock from './components/RealTimeClock';
@@ -11,6 +11,7 @@ import DailyWhEChart from './components/DailyWhEChart';
 import DataTable from './components/DataTable';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' (Page 1) or 'data' (Page 2)
   const [logs, setLogs] = useState([]);
   const [activeSheet, setActiveSheet] = useState('AUTO');
   const [selectedSheet, setSelectedSheet] = useState('AUTO');
@@ -137,27 +138,65 @@ export default function App() {
         </div>
       </header>
 
-      {/* SYSTEM DIAGNOSTIC & HEALTH PANEL */}
-      <DiagnosticPanel diagnostics={diagnostics} />
+      {/* PAGE NAVIGATION TABS BAR (PAGE 1: DASHBOARD, PAGE 2: DATA ENERGI) */}
+      <nav className="flex items-center gap-2 my-6 bg-slate-200/60 p-1.5 rounded-2xl max-w-md shadow-inner border border-slate-200/80">
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${
+            activeTab === 'dashboard'
+              ? 'bg-white text-blue-600 shadow-md shadow-slate-200/80 scale-[1.02]'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+          }`}
+        >
+          <LayoutDashboard className={`w-4 h-4 ${activeTab === 'dashboard' ? 'text-blue-600' : 'text-slate-400'}`} />
+          <span>Dashboard</span>
+        </button>
 
-      {/* REAL-TIME METRIC CARDS */}
-      <SummaryCards latestRecord={latestRecord} logs={logs} />
+        <button
+          onClick={() => setActiveTab('data')}
+          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${
+            activeTab === 'data'
+              ? 'bg-white text-blue-600 shadow-md shadow-slate-200/80 scale-[1.02]'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+          }`}
+        >
+          <Database className={`w-4 h-4 ${activeTab === 'data' ? 'text-blue-600' : 'text-slate-400'}`} />
+          <span>Data Energi</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${activeTab === 'data' ? 'bg-blue-100 text-blue-700' : 'bg-slate-300/80 text-slate-700'}`}>
+            {logs.length}
+          </span>
+        </button>
+      </nav>
 
-      {/* INTERACTIVE ECHARTS SECTION */}
-      <section className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PowerEChart logs={logs} />
-        <VoltageEChart logs={logs} />
-        <DailyWhEChart logs={logs} />
-      </section>
+      {/* TAB CONTENT RENDERER */}
+      {activeTab === 'dashboard' ? (
+        /* PAGE 1: DASHBOARD VIEW */
+        <main className="space-y-6">
+          {/* SYSTEM DIAGNOSTIC & HEALTH PANEL */}
+          <DiagnosticPanel diagnostics={diagnostics} />
 
-      {/* LOG DATA TABLE & CSV EXPORTER */}
-      <DataTable
-        logs={logs}
-        dateFrom={dateFrom}
-        setDateFrom={setDateFrom}
-        dateTo={dateTo}
-        setDateTo={setDateTo}
-      />
+          {/* REAL-TIME METRIC CARDS */}
+          <SummaryCards latestRecord={latestRecord} logs={logs} />
+
+          {/* INTERACTIVE ECHARTS SECTION */}
+          <section className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <PowerEChart logs={logs} />
+            <VoltageEChart logs={logs} />
+            <DailyWhEChart logs={logs} />
+          </section>
+        </main>
+      ) : (
+        /* PAGE 2: DATA ENERGI VIEW */
+        <main>
+          <DataTable
+            logs={logs}
+            dateFrom={dateFrom}
+            setDateFrom={setDateFrom}
+            dateTo={dateTo}
+            setDateTo={setDateTo}
+          />
+        </main>
+      )}
 
       {/* FOOTER */}
       <footer className="mt-12 text-center text-xs text-slate-400 border-t border-slate-200 pt-6">
@@ -169,3 +208,4 @@ export default function App() {
     </div>
   );
 }
+
