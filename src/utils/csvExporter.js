@@ -57,7 +57,7 @@ export function exportToCsv(logs, dateFrom, dateTo) {
       Number(row.i_bat || 0).toFixed(2),
       Number(row.p_bat || 0).toFixed(2),
       Number(row.scc_eff || 0).toFixed(1),
-      `"${row.load_status || 'ON'}"`,
+      `"${row.load_status || 'OFF'}"`,
       parseInt(row.uptime_sec || 0, 10),
       Number(row.esp_temp || 0).toFixed(1),
       parseInt(row.free_heap || 0, 10),

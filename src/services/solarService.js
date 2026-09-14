@@ -68,6 +68,33 @@ export function formatEnergy(whValue) {
 }
 
 /**
+ * Parse any raw load_status string from database into standardized "PWM X%" or "OFF".
+ * Handles formats like: "ON 49% PWM", "ON 49%", "49% PWM", "PWM 49%", "49%", "ON", "OFF"
+ */
+export function parseLoadStatus(rawStr) {
+  if (!rawStr) return 'OFF';
+  const str = String(rawStr).trim().toUpperCase();
+
+  if (str === 'OFF' || str === '0' || str === '0%' || str === 'PWM 0%' || str === 'FALSE') {
+    return 'OFF';
+  }
+
+  // Extract number if present (e.g. "ON 49% PWM", "49% PWM", "ON 49%", "PWM 49%", "49%")
+  const match = str.match(/(\d+)/);
+  if (match) {
+    const pwmVal = parseInt(match[1], 10);
+    return pwmVal > 0 ? `PWM ${pwmVal}%` : 'OFF';
+  }
+
+  // If no number found, but contains "ON"
+  if (str.includes('ON')) {
+    return 'PWM 100%';
+  }
+
+  return 'OFF';
+}
+
+/**
  * Generate monthly sheet options matching user's exact format: Log_YYYY_MM
  */
 export function getAvailableSheetOptions() {
@@ -280,7 +307,8 @@ function parseAndCleanRows(rawRows) {
     const free_heap = parseFloat(cleanRow.free_heap || 0);
     const wifi_rssi = parseInt(cleanRow.wifi_rssi || -90, 10);
 
-    const load_status = String(cleanRow.load_status || 'ON').toUpperCase();
+    const load_status = parseLoadStatus(cleanRow.load_status);
+
     const sd_status = String(cleanRow.sd_status || 'MOUNTED').toUpperCase();
 
     validLogs.push({
@@ -309,79 +337,86 @@ function parseAndCleanRows(rawRows) {
 }
 
 /**
- * Generate 24 hours of realistic time-series mock logs in UTC
+ * Generate 30 days of realistic time-series mock logs in UTC (Daytime Only: 06:00 to 18:00 WIB)
  */
 export function generateMockLogs() {
   const logs = [];
   const now = new Date();
-  const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  let uptimeCounter = 172800;
+  const startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 1 month prior
+  let uptimeCounter = 259200;
   let whAccumulator = 0.0;
+  let lastWibDay = -1;
 
-  for (let i = 0; i < 144; i++) {
-    const timestampUtc = new Date(startTime.getTime() + i * 10 * 60 * 1000);
+  const stepMinutes = 10;
+  const totalSteps = Math.floor((30 * 24 * 60) / stepMinutes);
+
+  for (let i = 0; i <= totalSteps; i++) {
+    const timestampUtc = new Date(startTime.getTime() + i * stepMinutes * 60 * 1000);
     
-    // Check hour in WIB timezone for realistic solar generation curve
+    // Check hour in WIB timezone
     const wibFormatted = formatToWIB(timestampUtc);
     const hourWib = parseInt(wibFormatted.substring(11, 13), 10);
     const minWib = parseInt(wibFormatted.substring(14, 16), 10);
+    const dayWib = parseInt(wibFormatted.substring(8, 10), 10);
 
-    if (hourWib === 0 && minWib === 0) {
+    // Reset daily accumulator at start of a new day
+    if (lastWibDay !== -1 && dayWib !== lastWibDay) {
       whAccumulator = 0.0;
     }
+    lastWibDay = dayWib;
 
-    let v_pv, i_pv, p_pv, v_bat, i_bat, p_bat, scc_eff;
-
+    // ONLY generate logs during daytime (sunrise 06:00 WIB to sunset 18:00 WIB)
+    // Nighttime (18:01 to 05:59 WIB) is completely skipped
     if (hourWib >= 6 && hourWib <= 18) {
       const sunFactor = Math.max(0, Math.sin(((hourWib - 6 + minWib / 60) / 12) * Math.PI));
-      const noise = 0.92 + Math.random() * 0.15;
+      const noise = 0.90 + Math.random() * 0.20;
 
-      v_pv = parseFloat((16.5 + 2.5 * sunFactor * noise).toFixed(2));
-      i_pv = parseFloat((4.8 * sunFactor * noise).toFixed(2));
-      p_pv = parseFloat((v_pv * i_pv).toFixed(2));
+      const v_pv = parseFloat((16.5 + 3.0 * sunFactor * noise).toFixed(2));
+      const i_pv = parseFloat((5.2 * sunFactor * noise).toFixed(2));
+      const p_pv = parseFloat((v_pv * i_pv).toFixed(2));
 
-      v_bat = parseFloat((12.6 + 1.6 * sunFactor * noise).toFixed(2));
-      scc_eff = parseFloat((92.5 + 5.5 * sunFactor).toFixed(1));
-      p_bat = parseFloat((p_pv * (scc_eff / 100)).toFixed(2));
-      i_bat = v_bat > 0 ? parseFloat((p_bat / v_bat).toFixed(2)) : 0;
-    } else {
-      v_pv = parseFloat((0.2 + Math.random() * 0.1).toFixed(2));
-      i_pv = 0.0;
-      p_pv = 0.0;
+      whAccumulator += p_pv * (stepMinutes / 60);
 
-      v_bat = parseFloat((12.4 - Math.random() * 0.2).toFixed(2));
-      i_bat = -0.35;
-      p_bat = parseFloat((v_bat * i_bat).toFixed(2));
-      scc_eff = 0.0;
+      const v_bat = parseFloat((12.6 + 1.8 * sunFactor * noise).toFixed(2));
+      const scc_eff = parseFloat((92.0 + 6.0 * sunFactor).toFixed(1));
+      const p_bat = parseFloat((p_pv * (scc_eff / 100)).toFixed(2));
+      const i_bat = v_bat > 0 ? parseFloat((p_bat / v_bat).toFixed(2)) : 0;
+
+      let load_status = 'OFF';
+      if (p_pv > 35) {
+        const pwmPct = Math.min(100, Math.max(15, Math.round(((p_pv - 35) / 55) * 85 + 15)));
+        load_status = `PWM ${pwmPct}%`;
+      } else if (p_pv > 15) {
+        const pwmPct = Math.min(45, Math.max(10, Math.round(((p_pv - 15) / 20) * 35 + 10)));
+        load_status = `PWM ${pwmPct}%`;
+      }
+
+      uptimeCounter += stepMinutes * 60;
+      const esp_temp = parseFloat((31.5 + (p_pv > 10 ? p_pv / 7 : 0) + (Math.random() * 1.5 - 0.75)).toFixed(1));
+      const free_heap = Math.floor(212000 + Math.random() * 14000);
+      const wifi_rssi = -64 + Math.floor(Math.random() * 6 - 3);
+
+      logs.push({
+        timestamp: wibFormatted,
+        timestampUtc: formatToUTC(timestampUtc),
+        rawTimestamp: formatToUTC(timestampUtc),
+        dateObj: timestampUtc,
+        v_pv,
+        i_pv,
+        p_pv,
+        wh_pv_daily: parseFloat(whAccumulator.toFixed(2)),
+        v_bat,
+        i_bat,
+        p_bat,
+        scc_eff,
+        load_status,
+        uptime_sec: uptimeCounter,
+        esp_temp,
+        free_heap,
+        wifi_rssi,
+        sd_status: 'MOUNTED',
+      });
     }
-
-    whAccumulator += p_pv / 6;
-    uptimeCounter += 600;
-
-    const esp_temp = parseFloat((32.0 + (p_pv > 10 ? p_pv / 8 : 0) + (Math.random() * 2 - 1)).toFixed(1));
-    const free_heap = Math.floor(215000 + Math.random() * 12000);
-    const wifi_rssi = -62 + Math.floor(Math.random() * 8 - 4);
-
-    logs.push({
-      timestamp: wibFormatted,
-      timestampUtc: formatToUTC(timestampUtc),
-      rawTimestamp: formatToUTC(timestampUtc),
-      dateObj: timestampUtc,
-      v_pv,
-      i_pv,
-      p_pv,
-      wh_pv_daily: parseFloat(whAccumulator.toFixed(2)),
-      v_bat,
-      i_bat,
-      p_bat,
-      scc_eff,
-      load_status: 'ON',
-      uptime_sec: uptimeCounter,
-      esp_temp,
-      free_heap,
-      wifi_rssi,
-      sd_status: 'MOUNTED',
-    });
   }
 
   return logs;

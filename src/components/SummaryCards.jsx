@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Sun, BatteryCharging, Zap, RotateCcw } from 'lucide-react';
-import { calculateEnergyPeriods, formatEnergy } from '../services/solarService';
+import { calculateEnergyPeriods, formatEnergy, parseLoadStatus } from '../services/solarService';
 
 function SummaryCards({ latestRecord, logs = [] }) {
   const [period, setPeriod] = useState('harian'); // 'harian' | 'mingguan' | 'bulanan'
@@ -13,8 +13,10 @@ function SummaryCards({ latestRecord, logs = [] }) {
     i_bat = 0,
     p_bat = 0,
     scc_eff = 0,
-    load_status = 'ON',
+    load_status = 'OFF',
   } = latestRecord || {};
+
+  const displayLoadStatus = parseLoadStatus(load_status);
 
   const isCharging = p_bat >= 0;
 
@@ -144,12 +146,16 @@ function SummaryCards({ latestRecord, logs = [] }) {
             <div className="text-base font-bold font-mono text-slate-800 mt-0.5">{scc_eff}<span className="text-xs text-slate-400">%</span></div>
           </div>
           <div>
-            <div className="text-xs text-slate-500 font-medium">Relay Load</div>
+            <div className="text-xs text-slate-500 font-medium">Dump Load Status</div>
             <div className="mt-0.5">
-              {load_status === 'ON' ? (
-                <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">RELAY ON</span>
+              {displayLoadStatus && displayLoadStatus !== 'OFF' ? (
+                <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                  DUMP LOAD: {displayLoadStatus}
+                </span>
               ) : (
-                <span className="px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-800">RELAY OFF</span>
+                <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                  DUMP LOAD: OFF
+                </span>
               )}
             </div>
           </div>

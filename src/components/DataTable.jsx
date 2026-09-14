@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Download, ChevronLeft, ChevronRight, Search, Filter, RefreshCw } from 'lucide-react';
 import { exportToCsv } from '../utils/csvExporter';
-import { formatEnergy } from '../services/solarService';
+import { formatEnergy, parseLoadStatus } from '../services/solarService';
 
 function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -146,7 +146,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                 <th className="p-3.5">I_BAT (A)</th>
                 <th className="p-3.5 text-emerald-600">P_BAT (W)</th>
                 <th className="p-3.5">SCC Eff (%)</th>
-                <th className="p-3.5">Load</th>
+                <th className="p-3.5">Dump Load (PWM)</th>
                 <th className="p-3.5">Uptime (s)</th>
                 <th className="p-3.5">Temp (°C)</th>
                 <th className="p-3.5">Wi-Fi (dBm)</th>
@@ -167,10 +167,14 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                     <td className="p-3.5 text-emerald-600 font-bold">{Number(log.p_bat).toFixed(2)}</td>
                     <td className="p-3.5">{Number(log.scc_eff).toFixed(1)}%</td>
                     <td className="p-3.5 font-sans">
-                      {log.load_status === 'ON' ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">ON</span>
+                      {parseLoadStatus(log.load_status) !== 'OFF' ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                          {parseLoadStatus(log.load_status)}
+                        </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">OFF</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                          OFF
+                        </span>
                       )}
                     </td>
                     <td className="p-3.5 text-slate-500">{log.uptime_sec}</td>
