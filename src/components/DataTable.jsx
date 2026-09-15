@@ -10,17 +10,19 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
 
   // Filter logs by selected date range and search term
   const filteredLogs = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
     return logs.filter(item => {
-      const dateStr = item.dateObj ? item.dateObj.toISOString().substring(0, 10) : item.timestamp.substring(0, 10);
+      const dateStr = item.wibDateStr || (item.dateObj ? item.dateObj.toISOString().substring(0, 10) : item.timestamp.substring(0, 10));
       const afterFrom = dateFrom ? dateStr >= dateFrom : true;
       const beforeTo = dateTo ? dateStr <= dateTo : true;
 
-      const matchesSearch = searchTerm === '' || 
-        item.timestamp.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(logVal(item.v_pv)).includes(searchTerm) ||
-        String(logVal(item.p_pv)).includes(searchTerm) ||
-        String(item.load_status).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(item.sd_status).toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = term === '' || 
+        item.timestamp.toLowerCase().includes(term) ||
+        String(logVal(item.v_pv)).includes(term) ||
+        String(logVal(item.p_pv)).includes(term) ||
+        String(logVal(item.lux_val)).includes(term) ||
+        String(item.load_status).toLowerCase().includes(term) ||
+        String(item.sd_status).toLowerCase().includes(term);
 
       return afterFrom && beforeTo && matchesSearch;
     }).sort((a, b) => (b.dateObj || 0) - (a.dateObj || 0));
@@ -68,7 +70,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Data riwayat pengukuran lengkap dari sensor PV, Baterai, dan status ESP32 Micro SD.
+              Data riwayat pengukuran lengkap dari sensor PV, Cahaya (Lux), Baterai, dan status ESP32 Micro SD.
             </p>
           </div>
 
@@ -79,7 +81,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
               <Search className="w-3.5 h-3.5 text-slate-400 mr-2" />
               <input
                 type="text"
-                placeholder="Cari timestamp, status..."
+                placeholder="Cari timestamp, status, lux..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none w-36 sm:w-44 font-medium"
@@ -142,6 +144,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                 <th className="p-3.5">I_PV (A)</th>
                 <th className="p-3.5 text-blue-600">P_PV (W)</th>
                 <th className="p-3.5 text-amber-600">Wh Daily</th>
+                <th className="p-3.5 text-amber-500">Lux (lx)</th>
                 <th className="p-3.5">V_BAT (V)</th>
                 <th className="p-3.5">I_BAT (A)</th>
                 <th className="p-3.5 text-emerald-600">P_BAT (W)</th>
@@ -162,6 +165,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                     <td className="p-3.5">{Number(log.i_pv).toFixed(2)}</td>
                     <td className="p-3.5 text-blue-600 font-bold">{Number(log.p_pv).toFixed(2)}</td>
                     <td className="p-3.5 text-amber-600 font-bold">{formatEnergy(log.wh_pv_daily).formatted}</td>
+                    <td className="p-3.5 text-amber-600 font-bold">{Number(log.lux_val || 0).toLocaleString('id-ID')} lx</td>
                     <td className="p-3.5">{Number(log.v_bat).toFixed(2)}</td>
                     <td className="p-3.5">{Number(log.i_bat).toFixed(2)}</td>
                     <td className="p-3.5 text-emerald-600 font-bold">{Number(log.p_bat).toFixed(2)}</td>
@@ -189,7 +193,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={14} className="p-12 text-center text-slate-400 font-sans">
+                  <td colSpan={15} className="p-12 text-center text-slate-400 font-sans">
                     <div className="max-w-xs mx-auto text-center">
                       <Filter className="w-8 h-8 mx-auto text-slate-300 mb-2" />
                       <p className="font-semibold text-slate-600">Tidak Ada Data Ditemukan</p>

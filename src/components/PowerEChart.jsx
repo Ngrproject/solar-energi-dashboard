@@ -9,21 +9,19 @@ function PowerEChart({ logs = [] }) {
   const filteredLogs = useMemo(() => filterLogsByPeriod(logs, period), [logs, period]);
 
   const option = useMemo(() => {
-    const labels = filteredLogs.map(item => {
-      if (period === 'harian') {
-        return item.timestamp && item.timestamp.length >= 16 ? item.timestamp.substring(11, 16) : item.timestamp || '';
-      }
-      if (item.timestamp && item.timestamp.length >= 16) {
-        return `${item.timestamp.substring(8, 10)}/${item.timestamp.substring(5, 7)} ${item.timestamp.substring(11, 16)}`;
-      }
-      return item.timestamp || '';
-    });
+    const labels = filteredLogs.map(item => (
+      period === 'harian' 
+        ? (item.wibTimeStr || (item.timestamp && item.timestamp.length >= 16 ? item.timestamp.substring(11, 16) : item.timestamp || ''))
+        : (item.wibShortDateStr || item.timestamp || '')
+    ));
 
     const pPvData = filteredLogs.map(item => item.p_pv || 0);
     const pBatData = filteredLogs.map(item => item.p_bat || 0);
 
     return {
       backgroundColor: 'transparent',
+      animationDuration: 300,
+      animationDurationUpdate: 300,
       tooltip: {
         trigger: 'axis',
         backgroundColor: '#ffffff',
@@ -65,6 +63,7 @@ function PowerEChart({ logs = [] }) {
           type: 'line',
           smooth: true,
           showSymbol: false,
+          sampling: 'lttb',
           lineStyle: { width: 3, color: '#2563eb' },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -79,6 +78,7 @@ function PowerEChart({ logs = [] }) {
           type: 'line',
           smooth: true,
           showSymbol: false,
+          sampling: 'lttb',
           lineStyle: { width: 3, color: '#10b981' },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [

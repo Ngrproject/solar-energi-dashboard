@@ -2,6 +2,15 @@ import React, { useState } from 'react';
 import { Sun, BatteryCharging, Zap, RotateCcw } from 'lucide-react';
 import { calculateEnergyPeriods, formatEnergy, parseLoadStatus } from '../services/solarService';
 
+function getLuxCategory(lux) {
+  const val = Number(lux || 0);
+  if (val >= 70000) return { label: 'Sangat Cerah', color: 'bg-amber-100 text-amber-800 border-amber-300' };
+  if (val >= 30000) return { label: 'Cerah', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' };
+  if (val >= 10000) return { label: 'Sedang', color: 'bg-sky-100 text-sky-800 border-sky-300' };
+  if (val >= 1000) return { label: 'Redup', color: 'bg-slate-100 text-slate-700 border-slate-300' };
+  return { label: 'Gelap / Malam', color: 'bg-slate-200 text-slate-600 border-slate-300' };
+}
+
 function SummaryCards({ latestRecord, logs = [] }) {
   const [period, setPeriod] = useState('harian'); // 'harian' | 'mingguan' | 'bulanan'
 
@@ -14,11 +23,13 @@ function SummaryCards({ latestRecord, logs = [] }) {
     p_bat = 0,
     scc_eff = 0,
     load_status = 'OFF',
+    lux_val = 0,
   } = latestRecord || {};
 
   const displayLoadStatus = parseLoadStatus(load_status);
 
   const isCharging = p_bat >= 0;
+  const luxCat = getLuxCategory(lux_val);
 
   // Calculate Period Energies
   const energyData = calculateEnergyPeriods(logs);
@@ -49,7 +60,9 @@ function SummaryCards({ latestRecord, logs = [] }) {
             <Sun className="w-4 h-4 text-blue-600" />
             Panel Surya (PV)
           </span>
-          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-100">Solar Input</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${luxCat.color}`}>
+            {luxCat.label}
+          </span>
         </div>
 
         <div className="mt-4 flex items-baseline gap-2">
@@ -57,14 +70,18 @@ function SummaryCards({ latestRecord, logs = [] }) {
           <span className="text-base font-bold text-blue-600">Watt</span>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+        <div className="mt-5 grid grid-cols-3 gap-2 pt-4 border-t border-slate-100">
           <div>
-            <div className="text-xs text-slate-500 font-medium">Tegangan (V_PV)</div>
-            <div className="text-base font-bold font-mono text-slate-800 mt-0.5">{v_pv} <span className="text-xs text-slate-400 font-normal">V</span></div>
+            <div className="text-[11px] text-slate-500 font-medium">Tegangan (V_PV)</div>
+            <div className="text-sm font-bold font-mono text-slate-800 mt-0.5">{v_pv} <span className="text-[10px] text-slate-400 font-normal">V</span></div>
           </div>
           <div>
-            <div className="text-xs text-slate-500 font-medium">Arus (I_PV)</div>
-            <div className="text-base font-bold font-mono text-slate-800 mt-0.5">{i_pv} <span className="text-xs text-slate-400 font-normal">A</span></div>
+            <div className="text-[11px] text-slate-500 font-medium">Arus (I_PV)</div>
+            <div className="text-sm font-bold font-mono text-slate-800 mt-0.5">{i_pv} <span className="text-[10px] text-slate-400 font-normal">A</span></div>
+          </div>
+          <div>
+            <div className="text-[11px] text-slate-500 font-medium">Cahaya (Lux)</div>
+            <div className="text-sm font-bold font-mono text-amber-600 mt-0.5">{Number(lux_val || 0).toLocaleString('id-ID')}</div>
           </div>
         </div>
       </div>

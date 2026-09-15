@@ -20,18 +20,19 @@ Web Dashboard Monitoring Energi Panel Surya (50Wp/100Wp) berbasis **React** (Vit
    - Status Penyimpanan SD Card (`sd_status`).
 
 2. **Real-Time Summary Cards**
-   - **Panel Surya (PV)**: Tegangan (`v_pv`), Arus (`i_pv`), Daya (`p_pv`).
+   - **Panel Surya (PV)**: Tegangan (`v_pv`), Arus (`i_pv`), Daya (`p_pv`), dan Intensitas Cahaya (`lux_val` Lux) dengan badge kondisi cahaya (`Sangat Cerah`, `Cerah`, `Sedang`, `Redup`, `Gelap`).
    - **Pengisian Baterai (BAT)**: Tegangan (`v_bat`), Arus (`i_bat`), Daya (`p_bat`), Status (`CHARGING`/`DISCHARGING`).
    - **Sistem Control & Akumulasi**: Energi Harian (`wh_pv_daily`), Efisiensi SCC (`scc_eff` %), Status Relay Load (`load_status` ON/OFF).
 
 3. **Interactive Apache ECharts Panels**
-   - **Line Chart 1 (`PowerEChart.jsx`)**: Kurva Daya Panel (`p_pv`) vs Daya Baterai (`p_bat`) dengan area gradient & glowing curves.
+   - **Line Chart 1 (`PowerEChart.jsx`)**: Kurva Daya Panel (`p_pv`) vs Daya Baterai (`p_bat`) dalam Watt.
    - **Line Chart 2 (`VoltageEChart.jsx`)**: Kurva Tegangan Panel (`v_pv`) vs Tegangan Baterai (`v_bat`).
-   - **Bar Chart 3 (`DailyWhEChart.jsx`)**: Total Akumulasi Energi Wh Harian.
+   - **Dual Y-Axis Line Chart 3 (`LuxComparisonChart.jsx`)**: Kurva Komparasi Cahaya Matahari (`lux_val`) vs Parameter Terpilih (`p_pv`, `p_bat`, `v_pv`, `v_bat`).
+   - **Bar Chart 4 (`DailyWhEChart.jsx`)**: Total Akumulasi Energi Wh Harian.
 
 4. **100% Identical SD Card CSV Exporter & History Table**
    - Filter rentang tanggal data log (`date_from` s/d `date_to`).
-   - Tombol **Export / Download CSV** (`csvExporter.js`) yang men-stream file `.csv` secara langsung dengan header & format data 100% identik dengan berkas log SD Card ESP32.
+   - Tombol **Export / Download CSV** (`csvExporter.js`) yang men-stream file `.csv` secara langsung dengan 16 kolom data 100% identik dengan berkas log SD Card ESP32 & Google Sheets.
    - Paginasi data log interaktif.
 
 5. **Automatic Fallback & Mock Data Preview**

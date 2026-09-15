@@ -7,7 +7,7 @@ function generateDummySolarData() {
   const headers = [
     'timestamp', 'v_pv', 'i_pv', 'p_pv', 'wh_pv_daily',
     'v_bat', 'i_bat', 'p_bat', 'scc_eff', 'load_status',
-    'uptime_sec', 'esp_temp', 'free_heap', 'wifi_rssi', 'sd_status'
+    'uptime_sec', 'esp_temp', 'free_heap', 'wifi_rssi', 'sd_status', 'lux_val'
   ];
 
   rows.push(headers);
@@ -26,7 +26,7 @@ function generateDummySolarData() {
       whAccumulator = 0.0;
     }
 
-    let v_pv, i_pv, p_pv, v_bat, i_bat, p_bat, scc_eff;
+    let v_pv, i_pv, p_pv, v_bat, i_bat, p_bat, scc_eff, lux_val;
 
     if (hour >= 6 && hour <= 18) {
       const sunFactor = Math.max(0, Math.sin(((hour - 6 + minute / 60) / 12) * Math.PI));
@@ -35,6 +35,7 @@ function generateDummySolarData() {
       v_pv = (16.5 + 2.5 * sunFactor * noise).toFixed(2);
       i_pv = (4.8 * sunFactor * noise).toFixed(2);
       p_pv = (v_pv * i_pv).toFixed(2);
+      lux_val = (sunFactor * noise * 85000 + Math.random() * 500).toFixed(1);
 
       v_bat = (12.6 + 1.6 * sunFactor * noise).toFixed(2);
       scc_eff = (92.5 + 5.5 * sunFactor).toFixed(1);
@@ -44,6 +45,7 @@ function generateDummySolarData() {
       v_pv = (0.2 + Math.random() * 0.1).toFixed(2);
       i_pv = '0.00';
       p_pv = '0.00';
+      lux_val = (Math.random() * 10).toFixed(1);
 
       v_bat = (12.4 - Math.random() * 0.2).toFixed(2);
       i_bat = '-0.35';
@@ -81,7 +83,8 @@ function generateDummySolarData() {
       esp_temp,
       free_heap,
       wifi_rssi,
-      'MOUNTED'
+      'MOUNTED',
+      lux_val
     ]);
   }
 

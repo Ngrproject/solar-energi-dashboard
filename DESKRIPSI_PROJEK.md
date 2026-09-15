@@ -46,7 +46,7 @@ Aplikasi web ini dibangun berbasis **React** (Vite), **Apache ECharts**, dan **T
 
 ## 🗄️ 2. Struktur & Isi Database
 
-Database menggunakan **Google Sheets** sebagai *Cloud Time-Series Database* dan **MicroSD Card** sebagai *Local Storage Log*. Terdiri dari 15 kolom data (*fields*) sebagai berikut:
+Database menggunakan **Google Sheets** sebagai *Cloud Time-Series Database* dan **MicroSD Card** sebagai *Local Storage Log*. Terdiri dari 16 kolom data (*fields*) sebagai berikut:
 
 | No | Nama Field (Database) | Tipe Data | Satuan / Format | Deskripsi & Fungsi |
 |---|---|---|---|---|
@@ -65,6 +65,7 @@ Database menggunakan **Google Sheets** sebagai *Cloud Time-Series Database* dan 
 | 13 | `free_heap` | Integer | Bytes | Sisa memori RAM bebas (*Free Heap Memory*) ESP32. |
 | 14 | `wifi_rssi` | Integer | dBm | Kekuatan sinyal jaringan Wi-Fi (*RSSI*). |
 | 15 | `sd_status` | String | `MOUNTED` / `ERROR` | Status ketersediaan dan akses MicroSD Card. |
+| 16 | `lux_val` | Float | Lux (lx) | Intensitas cahaya matahari dari sensor cahaya untuk komparasi produksi energi. |
 
 ---
 
@@ -94,7 +95,7 @@ Tampilan antarmuka terbagi menjadi beberapa bagian utama:
 - **Last Log Timestamp**: Waktu pencatatan log data terbaru (WIB & UTC).
 
 #### 2. Real-Time Summary Cards (Metrik Telemetri)
-- **Card Panel Surya (PV)**: Daya $P_{PV}$ (Watt), Tegangan $V_{PV}$ (V), Arus $I_{PV}$ (A).
+- **Card Panel Surya (PV)**: Daya $P_{PV}$ (Watt), Tegangan $V_{PV}$ (V), Arus $I_{PV}$ (A), serta **Intensitas Cahaya Matahari (`lux_val` Lux)** dilengkapi badge status kondisi cahaya (`Sangat Cerah`, `Cerah`, `Sedang`, `Redup`, `Gelap`).
 - **Card Baterai (BAT)**: Daya $P_{BAT}$ (Watt), Status (`CHARGING`/`DISCHARGING`), Tegangan $V_{BAT}$ (V), Arus $I_{BAT}$ (A).
 - **Card Akumulasi Energi & Kontrol**:
   - Total akumulasi energi (Wh/kWh) dengan opsi switcher periode (**Harian**, **Mingguan**, **Bulanan**).
@@ -104,20 +105,22 @@ Tampilan antarmuka terbagi menjadi beberapa bagian utama:
 #### 3. Interactive Apache ECharts Section
 - **Power EChart (Line Chart)**: Grafik daya $P_{PV}$ vs $P_{BAT}$ (Watt).
 - **Voltage EChart (Line Chart)**: Grafik perbandingan tegangan $V_{PV}$ vs $V_{BAT}$ (Volt).
+- **Lux Comparison EChart (Dual Y-Axis Full Width Chart)**: Grafik komparasi Intensitas Cahaya Matahari (Lux, sumbu Y kanan) terhadap parameter pilihan ($P_{PV}$ Watt, $P_{BAT}$ Watt, $V_{PV}$ Volt, atau $V_{BAT}$ Volt, sumbu Y kiri) membentang penuh (*full-width*) dengan sakelar pemilih (*metric selector*).
 - **Daily Wh EChart (Bar Chart)**: Grafik batang akumulasi energi (Wh / kWh) per periode.
+- **Filter Periode Harian**: Pada mode Harian, grafik memulai visualisasi secara presisi dari entri data pertama hari tersebut (sejak 00:00 WIB).
 
 ---
 
 ### C. Halaman Tab 2: "Data Energi"
 
 #### 1. Filter & Action Control Bar
-- **Search Bar**: Pencarian kata kunci bebas pada kolom timestamp, status, dll.
+- **Search Bar**: Pencarian kata kunci bebas pada kolom timestamp, status, lux, dll.
 - **Date Range Filter**: Filter tanggal *Dari* dan *Sampai*.
 - **Reset Filter**: Mengembalikan filter ke kondisi default.
-- **Tombol Export CSV**: Mengunduh data log dalam format `.csv` berstandar SD Card.
+- **Tombol Export CSV**: Mengunduh data log dalam format `.csv` berstandar SD Card (16 kolom).
 
 #### 2. Log Data Table
-Tabel interaktif yang menampilkan 14 kolom data teknis lengkap dari seluruh riwayat pengukuran sensor.
+Tabel interaktif yang menampilkan 15 kolom data teknis lengkap (termasuk kolom Lux) dari seluruh riwayat pengukuran sensor.
 
 #### 3. Pagination Controls
 - Informasi jumlah baris data yang ditampilkan.

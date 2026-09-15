@@ -8,21 +8,19 @@ function VoltageEChart({ logs = [] }) {
   const filteredLogs = useMemo(() => filterLogsByPeriod(logs, period), [logs, period]);
 
   const option = useMemo(() => {
-    const labels = filteredLogs.map(item => {
-      if (period === 'harian') {
-        return item.timestamp && item.timestamp.length >= 16 ? item.timestamp.substring(11, 16) : item.timestamp || '';
-      }
-      if (item.timestamp && item.timestamp.length >= 16) {
-        return `${item.timestamp.substring(8, 10)}/${item.timestamp.substring(5, 7)} ${item.timestamp.substring(11, 16)}`;
-      }
-      return item.timestamp || '';
-    });
+    const labels = filteredLogs.map(item => (
+      period === 'harian' 
+        ? (item.wibTimeStr || (item.timestamp && item.timestamp.length >= 16 ? item.timestamp.substring(11, 16) : item.timestamp || ''))
+        : (item.wibShortDateStr || item.timestamp || '')
+    ));
 
     const vPvData = filteredLogs.map(item => item.v_pv || 0);
     const vBatData = filteredLogs.map(item => item.v_bat || 0);
 
     return {
       backgroundColor: 'transparent',
+      animationDuration: 300,
+      animationDurationUpdate: 300,
       tooltip: {
         trigger: 'axis',
         backgroundColor: '#ffffff',
@@ -64,6 +62,7 @@ function VoltageEChart({ logs = [] }) {
           type: 'line',
           smooth: true,
           showSymbol: false,
+          sampling: 'lttb',
           lineStyle: { width: 2.5, color: '#2563eb' },
           data: vPvData
         },
@@ -72,6 +71,7 @@ function VoltageEChart({ logs = [] }) {
           type: 'line',
           smooth: true,
           showSymbol: false,
+          sampling: 'lttb',
           lineStyle: { width: 2.5, color: '#f59e0b' },
           data: vBatData
         }

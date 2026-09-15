@@ -60,7 +60,8 @@ class SolarExportController extends SolarDashboardController
             'esp_temp',
             'free_heap',
             'wifi_rssi',
-            'sd_status'
+            'sd_status',
+            'lux_val'
         ];
 
         $headers = [
@@ -95,6 +96,7 @@ class SolarExportController extends SolarDashboardController
                     (int)($row['free_heap'] ?? 0),
                     (int)($row['wifi_rssi'] ?? 0),
                     $row['sd_status'] ?? 'MOUNTED',
+                    number_format((float)($row['lux_val'] ?? 0), 1, '.', ''),
                 ]);
             }
 

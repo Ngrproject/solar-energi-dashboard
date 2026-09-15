@@ -8,6 +8,7 @@ import SummaryCards from './components/SummaryCards';
 import PowerEChart from './components/PowerEChart';
 import VoltageEChart from './components/VoltageEChart';
 import DailyWhEChart from './components/DailyWhEChart';
+import LuxComparisonChart from './components/LuxComparisonChart';
 import DataTable from './components/DataTable';
 
 export default function App() {
@@ -182,6 +183,7 @@ export default function App() {
           <section className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
             <PowerEChart logs={logs} />
             <VoltageEChart logs={logs} />
+            <LuxComparisonChart logs={logs} />
             <DailyWhEChart logs={logs} />
           </section>
         </main>

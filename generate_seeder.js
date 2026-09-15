@@ -24,7 +24,8 @@ const headers = [
   'esp_temp',
   'free_heap',
   'wifi_rssi',
-  'sd_status'
+  'sd_status',
+  'lux_val'
 ];
 
 const rows = [headers.join(',')];
@@ -77,6 +78,7 @@ while (currentMs <= endMs) {
     const v_pv = parseFloat((16.5 + 3.0 * sunFactor * noise).toFixed(2));
     const i_pv = parseFloat((5.2 * sunFactor * noise).toFixed(2));
     const p_pv = parseFloat((v_pv * i_pv).toFixed(2));
+    const lux_val = parseFloat((sunFactor * noise * 85000 + Math.random() * 500).toFixed(1));
 
     // Daily Wh accumulation (Power * 10/60 hours)
     whDaily += p_pv * (stepMinutes / 60);
@@ -115,7 +117,8 @@ while (currentMs <= endMs) {
       esp_temp.toFixed(1),
       free_heap,
       wifi_rssi,
-      'MOUNTED'
+      'MOUNTED',
+      lux_val.toFixed(1)
     ];
 
     rows.push(row.join(','));

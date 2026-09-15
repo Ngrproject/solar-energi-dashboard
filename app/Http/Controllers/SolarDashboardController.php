@@ -148,7 +148,7 @@ class SolarDashboardController extends Controller
         $expectedColumns = [
             'timestamp', 'v_pv', 'i_pv', 'p_pv', 'wh_pv_daily',
             'v_bat', 'i_bat', 'p_bat', 'scc_eff', 'load_status',
-            'uptime_sec', 'esp_temp', 'free_heap', 'wifi_rssi', 'sd_status'
+            'uptime_sec', 'esp_temp', 'free_heap', 'wifi_rssi', 'sd_status', 'lux_val'
         ];
 
         foreach ($rawRows as $row) {
@@ -172,6 +172,7 @@ class SolarDashboardController extends Controller
             $item['esp_temp']     = (float) ($item['esp_temp'] ?? 0);
             $item['free_heap']    = (float) ($item['free_heap'] ?? 0);
             $item['wifi_rssi']    = (int)   ($item['wifi_rssi'] ?? 0);
+            $item['lux_val']      = (float) ($item['lux_val'] ?? 0);
             $item['load_status']  = strtoupper($item['load_status'] ?: 'OFF');
             $item['sd_status']    = strtoupper($item['sd_status'] ?: 'READY');
 
@@ -197,7 +198,7 @@ class SolarDashboardController extends Controller
         $isOnline = false;
         if ($latestRecord['timestamp_parsed']) {
             $diffMinutes = Carbon::now()->diffInMinutes($latestRecord['timestamp_parsed']);
-            $isOnline = abs($diffMinutes) <= 15; // consider online if within 15 min
+            $isOnline = abs($diffMinutes) <= 3; // consider online if within 3 min
         }
 
         // 2. Uptime formatting: X Hari, Y Jam, Z Menit
@@ -293,6 +294,7 @@ class SolarDashboardController extends Controller
                 $v_pv = round(16.5 + (2.5 * $sunFactor) * $noise, 2);
                 $i_pv = round((4.8 * $sunFactor) * $noise, 2);
                 $p_pv = round($v_pv * $i_pv, 2);
+                $lux_val = round($sunFactor * $noise * 85000 + rand(0, 500), 1);
 
                 // Battery charging dynamics (12V system charging up to 14.4V)
                 $v_bat = round(12.6 + (1.6 * $sunFactor) * $noise, 2);
@@ -304,6 +306,7 @@ class SolarDashboardController extends Controller
                 $v_pv = round(0.2 + (rand(0, 10) / 100), 2);
                 $i_pv = 0.0;
                 $p_pv = 0.0;
+                $lux_val = round(rand(0, 50) / 10, 1);
 
                 // Battery discharging / resting voltage
                 $v_bat = round(12.4 - (rand(0, 30) / 100), 2);
@@ -337,6 +340,7 @@ class SolarDashboardController extends Controller
                 'free_heap'        => $free_heap,
                 'wifi_rssi'        => $wifi_rssi,
                 'sd_status'        => 'MOUNTED',
+                'lux_val'          => $lux_val,
             ]);
         }
 
@@ -365,6 +369,7 @@ class SolarDashboardController extends Controller
             'free_heap'        => 0,
             'wifi_rssi'        => -90,
             'sd_status'        => 'ERROR',
+            'lux_val'          => 0,
         ];
     }
 }

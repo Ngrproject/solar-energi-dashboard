@@ -6,22 +6,34 @@ const SPREADSHEET_IDS = [
   '1ki4BkbqIpI9ZczU3cTeRwgMfEW_ZF_L95ZrZe-W3bfg'
 ];
 
+const wibFormatter = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Asia/Jakarta',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
+
+const utcFormatter = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'UTC',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
+
 /**
  * Format a Date object to WIB string (YYYY-MM-DD HH:mm:ss)
  */
 export function formatToWIB(dateObj) {
   if (!dateObj || isNaN(dateObj.getTime())) return '-';
-  const formatter = new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
-  return formatter.format(dateObj); // returns 'YYYY-MM-DD HH:mm:ss'
+  return wibFormatter.format(dateObj); // returns 'YYYY-MM-DD HH:mm:ss'
 }
 
 /**
@@ -29,17 +41,7 @@ export function formatToWIB(dateObj) {
  */
 export function formatToUTC(dateObj) {
   if (!dateObj || isNaN(dateObj.getTime())) return '-';
-  const formatter = new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'UTC',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
-  return formatter.format(dateObj);
+  return utcFormatter.format(dateObj);
 }
 
 /**
@@ -310,12 +312,28 @@ function parseAndCleanRows(rawRows) {
     const load_status = parseLoadStatus(cleanRow.load_status);
 
     const sd_status = String(cleanRow.sd_status || 'MOUNTED').toUpperCase();
+    
+    let luxRaw = cleanRow.lux_val ?? cleanRow.lux ?? cleanRow.cahaya ?? cleanRow.lux_sensor;
+    if (luxRaw === undefined || luxRaw === null || luxRaw === '') {
+      const foundKey = Object.keys(cleanRow).find(k => k.includes('lux') || k.includes('cahaya'));
+      if (foundKey) luxRaw = cleanRow[foundKey];
+    }
+    const lux_val = parseFloat(luxRaw || 0);
+
+    const wibDateStr = wibTimestamp.length >= 10 ? wibTimestamp.substring(0, 10) : '';
+    const wibTimeStr = wibTimestamp.length >= 16 ? wibTimestamp.substring(11, 16) : wibTimestamp;
+    const wibShortDateStr = wibTimestamp.length >= 16
+      ? `${wibTimestamp.substring(8, 10)}/${wibTimestamp.substring(5, 7)} ${wibTimestamp.substring(11, 16)}`
+      : wibTimestamp;
 
     validLogs.push({
       timestamp: wibTimestamp,       // Format Display WIB (UTC+7)
       timestampUtc: utcTimestamp,    // Format Display UTC
       rawTimestamp: rawTimestampStr,
       dateObj: isValidDate ? dateObj : new Date(),
+      wibDateStr,
+      wibTimeStr,
+      wibShortDateStr,
       v_pv,
       i_pv,
       p_pv: parseFloat(p_pv.toFixed(2)),
@@ -330,6 +348,7 @@ function parseAndCleanRows(rawRows) {
       free_heap,
       wifi_rssi,
       sd_status,
+      lux_val: parseFloat(lux_val.toFixed(1)),
     });
   });
 
@@ -375,6 +394,9 @@ export function generateMockLogs() {
       const i_pv = parseFloat((5.2 * sunFactor * noise).toFixed(2));
       const p_pv = parseFloat((v_pv * i_pv).toFixed(2));
 
+      // Light Intensity (Lux) based on sun position & noise (Peak ~85,000 Lux)
+      const lux_val = parseFloat((sunFactor * noise * 85000 + Math.random() * 500).toFixed(1));
+
       whAccumulator += p_pv * (stepMinutes / 60);
 
       const v_bat = parseFloat((12.6 + 1.8 * sunFactor * noise).toFixed(2));
@@ -396,11 +418,20 @@ export function generateMockLogs() {
       const free_heap = Math.floor(212000 + Math.random() * 14000);
       const wifi_rssi = -64 + Math.floor(Math.random() * 6 - 3);
 
+      const wibDateStr = wibFormatted.length >= 10 ? wibFormatted.substring(0, 10) : '';
+      const wibTimeStr = wibFormatted.length >= 16 ? wibFormatted.substring(11, 16) : wibFormatted;
+      const wibShortDateStr = wibFormatted.length >= 16
+        ? `${wibFormatted.substring(8, 10)}/${wibFormatted.substring(5, 7)} ${wibFormatted.substring(11, 16)}`
+        : wibFormatted;
+
       logs.push({
         timestamp: wibFormatted,
         timestampUtc: formatToUTC(timestampUtc),
         rawTimestamp: formatToUTC(timestampUtc),
         dateObj: timestampUtc,
+        wibDateStr,
+        wibTimeStr,
+        wibShortDateStr,
         v_pv,
         i_pv,
         p_pv,
@@ -415,6 +446,7 @@ export function generateMockLogs() {
         free_heap,
         wifi_rssi,
         sd_status: 'MOUNTED',
+        lux_val,
       });
     }
   }
@@ -455,7 +487,8 @@ export function calculateDiagnostics(latestRecord) {
 
   const now = new Date();
   const diffMinutes = Math.abs((now.getTime() - latestRecord.dateObj.getTime()) / (1000 * 60));
-  const isOnline = diffMinutes <= 30;
+  // Device is considered ONLINE only if the last record was received within 3 minutes
+  const isOnline = diffMinutes <= 3;
 
   const espTemp = latestRecord.esp_temp || 0;
   const tempStatus = espTemp > 50 ? 'HIGH' : espTemp > 40 ? 'WARM' : 'NORMAL';
@@ -572,7 +605,14 @@ export function filterLogsByPeriod(logs, period = 'harian') {
   const latestDate = latestRecord.dateObj;
 
   if (period === 'harian') {
-    // Show last 24 hours of data
+    // Show logs starting from 00:00 WIB of the latest recorded day
+    const latestWibDateStr = latestRecord.wibDateStr || (latestDate ? formatToWIB(latestDate).substring(0, 10) : '');
+    const todayLogs = sorted.filter(item => (item.wibDateStr || formatToWIB(item.dateObj).substring(0, 10)) === latestWibDateStr);
+
+    if (todayLogs.length >= 2) {
+      return todayLogs;
+    }
+    // Fallback to last 24h if today has fewer than 2 records
     const cutoff24h = new Date(latestDate.getTime() - 24 * 60 * 60 * 1000);
     return sorted.filter(item => item.dateObj >= cutoff24h);
   }

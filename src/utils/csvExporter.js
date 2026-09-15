@@ -40,7 +40,8 @@ export function exportToCsv(logs, dateFrom, dateTo) {
     'esp_temp',
     'free_heap',
     'wifi_rssi',
-    'sd_status'
+    'sd_status',
+    'lux_val'
   ];
 
   const csvRows = [];
@@ -62,7 +63,8 @@ export function exportToCsv(logs, dateFrom, dateTo) {
       Number(row.esp_temp || 0).toFixed(1),
       parseInt(row.free_heap || 0, 10),
       parseInt(row.wifi_rssi || -60, 10),
-      `"${row.sd_status || 'MOUNTED'}"`
+      `"${row.sd_status || 'MOUNTED'}"`,
+      Number(row.lux_val || 0).toFixed(1)
     ];
     csvRows.push(line.join(','));
   });
