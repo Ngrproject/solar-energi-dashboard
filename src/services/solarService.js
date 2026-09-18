@@ -110,6 +110,7 @@ export function getAvailableSheetOptions() {
   ];
 
   const projectMonths = [
+    { year: 2026, month: 8 },
     { year: 2026, month: 9 },
     { year: 2026, month: 10 },
     { year: 2026, month: 11 },
@@ -320,6 +321,13 @@ function parseAndCleanRows(rawRows) {
     }
     const lux_val = parseFloat(luxRaw || 0);
 
+    let sunshineRaw = cleanRow.sunshine_hours_daily ?? cleanRow.sunshine_duration ?? cleanRow.sunshine_hours ?? cleanRow.lama_penyinaran ?? cleanRow.sunshine;
+    if (sunshineRaw === undefined || sunshineRaw === null || sunshineRaw === '') {
+      const foundKey = Object.keys(cleanRow).find(k => k.includes('sunshine') || k.includes('penyinaran'));
+      if (foundKey) sunshineRaw = cleanRow[foundKey];
+    }
+    const sunshine_hours_daily = parseFloat(sunshineRaw || 0);
+
     const wibDateStr = wibTimestamp.length >= 10 ? wibTimestamp.substring(0, 10) : '';
     const wibTimeStr = wibTimestamp.length >= 16 ? wibTimestamp.substring(11, 16) : wibTimestamp;
     const wibShortDateStr = wibTimestamp.length >= 16
@@ -349,6 +357,7 @@ function parseAndCleanRows(rawRows) {
       wifi_rssi,
       sd_status,
       lux_val: parseFloat(lux_val.toFixed(1)),
+      sunshine_hours_daily: parseFloat(sunshine_hours_daily.toFixed(2)),
     });
   });
 
@@ -361,13 +370,16 @@ function parseAndCleanRows(rawRows) {
 export function generateMockLogs() {
   const logs = [];
   const now = new Date();
-  const startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 1 month prior
-  let uptimeCounter = 259200;
+
+  // Start from August 1, 2026 00:00:00 WIB (UTC ms: 2026-07-31 17:00:00)
+  const startTime = new Date(Date.UTC(2026, 7, 1, 0, 0, 0) - 7 * 3600 * 1000);
+  let uptimeCounter = 518400;
   let whAccumulator = 0.0;
+  let sunshineAccumulator = 0.0;
   let lastWibDay = -1;
 
   const stepMinutes = 10;
-  const totalSteps = Math.floor((30 * 24 * 60) / stepMinutes);
+  const totalSteps = Math.floor((now.getTime() - startTime.getTime()) / (stepMinutes * 60 * 1000));
 
   for (let i = 0; i <= totalSteps; i++) {
     const timestampUtc = new Date(startTime.getTime() + i * stepMinutes * 60 * 1000);
@@ -381,6 +393,7 @@ export function generateMockLogs() {
     // Reset daily accumulator at start of a new day
     if (lastWibDay !== -1 && dayWib !== lastWibDay) {
       whAccumulator = 0.0;
+      sunshineAccumulator = 0.0;
     }
     lastWibDay = dayWib;
 
@@ -398,6 +411,9 @@ export function generateMockLogs() {
       const lux_val = parseFloat((sunFactor * noise * 85000 + Math.random() * 500).toFixed(1));
 
       whAccumulator += p_pv * (stepMinutes / 60);
+      if (p_pv > 5 || lux_val > 10000) {
+        sunshineAccumulator += stepMinutes / 60;
+      }
 
       const v_bat = parseFloat((12.6 + 1.8 * sunFactor * noise).toFixed(2));
       const scc_eff = parseFloat((92.0 + 6.0 * sunFactor).toFixed(1));
@@ -447,6 +463,7 @@ export function generateMockLogs() {
         wifi_rssi,
         sd_status: 'MOUNTED',
         lux_val,
+        sunshine_hours_daily: parseFloat(sunshineAccumulator.toFixed(2)),
       });
     }
   }
@@ -473,6 +490,8 @@ export function calculateDiagnostics(latestRecord) {
     return {
       isOnline: false,
       statusLabel: 'OFFLINE',
+      statusType: 'offline',
+      statusDescription: 'Tidak Ada Data',
       uptimeFormatted: '0 Hari, 0 Jam, 0 Mnt',
       espTemp: 0,
       tempStatus: 'NORMAL',
@@ -486,9 +505,45 @@ export function calculateDiagnostics(latestRecord) {
   }
 
   const now = new Date();
+
+  // Determine current WIB hour
+  const wibNowStr = formatToWIB(now);
+  const hourWibNow = parseInt(wibNowStr.substring(11, 13), 10);
+  const isDaytimeNow = hourWibNow >= 6 && hourWibNow < 18;
+
   const diffMinutes = Math.abs((now.getTime() - latestRecord.dateObj.getTime()) / (1000 * 60));
-  // Device is considered ONLINE only if the last record was received within 3 minutes
-  const isOnline = diffMinutes <= 3;
+
+  const latestWibStr = latestRecord.timestamp || formatToWIB(latestRecord.dateObj);
+  const latestHourWib = latestWibStr.length >= 13 ? parseInt(latestWibStr.substring(11, 13), 10) : 12;
+  const isLatestRecordNight = latestHourWib >= 18 || latestHourWib < 6;
+
+  let isOnline = false;
+  let statusLabel = 'OFFLINE';
+  let statusType = 'offline'; // 'online' | 'standby' | 'offline'
+  let statusDescription = 'Terputus';
+
+  if (!isDaytimeNow || isLatestRecordNight) {
+    // Nighttime (18:00 - 05:59 WIB) or end of solar generation:
+    // Device intentionally sleeps / standby when solar panel is inactive
+    isOnline = false;
+    statusLabel = 'STANDBY (SLEEP)';
+    statusType = 'standby';
+    statusDescription = 'Non-Aktif (Malam Hari)';
+  } else {
+    // Daytime (06:00 - 18:00 WIB): Solar panel active
+    // User requirement: Strict 3-minute timeout threshold
+    if (diffMinutes <= 3) {
+      isOnline = true;
+      statusLabel = 'ONLINE';
+      statusType = 'online';
+      statusDescription = 'Aktif Transmisi';
+    } else {
+      isOnline = false;
+      statusLabel = 'OFFLINE';
+      statusType = 'offline';
+      statusDescription = 'Gangguan Transmisi Siang';
+    }
+  }
 
   const espTemp = latestRecord.esp_temp || 0;
   const tempStatus = espTemp > 50 ? 'HIGH' : espTemp > 40 ? 'WARM' : 'NORMAL';
@@ -501,7 +556,9 @@ export function calculateDiagnostics(latestRecord) {
 
   return {
     isOnline,
-    statusLabel: isOnline ? 'ONLINE' : 'OFFLINE',
+    statusLabel,
+    statusType,
+    statusDescription,
     uptimeFormatted: formatUptime(latestRecord.uptime_sec || 0),
     espTemp,
     tempStatus,
@@ -639,4 +696,77 @@ export function filterLogsByPeriod(logs, period = 'harian') {
 
   return sorted;
 }
+
+/**
+ * Calculate Sunshine Duration per period in WIB Timezone
+ */
+export function calculateSunshinePeriods(logs) {
+  if (!logs || logs.length === 0) {
+    return {
+      harianHours: 0,
+      mingguanHours: 0,
+      bulananHours: 0,
+      dailyChart: { labels: [], values: [] },
+      weeklyChart: { labels: [], values: [] },
+      monthlyChart: { labels: [], values: [] },
+    };
+  }
+
+  const sorted = [...logs].sort((a, b) => a.dateObj - b.dateObj);
+  const latestDateObj = sorted[sorted.length - 1].dateObj;
+  const latestWibDateStr = formatToWIB(latestDateObj).substring(0, 10);
+
+  // Filter logs for today WIB (since 00:00 WIB)
+  const todayLogs = sorted.filter(item => {
+    const wibStr = formatToWIB(item.dateObj).substring(0, 10);
+    return wibStr === latestWibDateStr;
+  });
+
+  const harianHours = todayLogs.length > 0
+    ? Math.max(...todayLogs.map(item => Number(item.sunshine_hours_daily || 0)))
+    : Number(sorted[sorted.length - 1].sunshine_hours_daily || 0);
+
+  const dailyMap = {};
+  sorted.forEach(item => {
+    const dateStr = formatToWIB(item.dateObj).substring(0, 10);
+    const val = Number(item.sunshine_hours_daily || 0);
+    if (!dailyMap[dateStr] || val > dailyMap[dateStr]) {
+      dailyMap[dateStr] = val;
+    }
+  });
+
+  const weeklyMap = {};
+  Object.keys(dailyMap).forEach(dateStr => {
+    const date = new Date(dateStr);
+    const weekNum = getWeekNumber(date);
+    const key = `Minggu ${weekNum[1]} (${date.getFullYear()})`;
+    weeklyMap[key] = (weeklyMap[key] || 0) + dailyMap[dateStr];
+  });
+
+  const monthlyMap = {};
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  Object.keys(dailyMap).forEach(dateStr => {
+    const date = new Date(dateStr);
+    const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+    monthlyMap[key] = (monthlyMap[key] || 0) + dailyMap[dateStr];
+  });
+
+  const mingguanHours = Object.values(weeklyMap).length > 0
+    ? Object.values(weeklyMap)[Object.values(weeklyMap).length - 1]
+    : harianHours;
+
+  const bulananHours = Object.values(monthlyMap).length > 0
+    ? Object.values(monthlyMap)[Object.values(monthlyMap).length - 1]
+    : harianHours;
+
+  return {
+    harianHours: parseFloat(harianHours.toFixed(2)),
+    mingguanHours: parseFloat(mingguanHours.toFixed(2)),
+    bulananHours: parseFloat(bulananHours.toFixed(2)),
+    dailyChart: { labels: Object.keys(dailyMap), values: Object.values(dailyMap).map(v => parseFloat(v.toFixed(2))) },
+    weeklyChart: { labels: Object.keys(weeklyMap), values: Object.values(weeklyMap).map(v => parseFloat(v.toFixed(2))) },
+    monthlyChart: { labels: Object.keys(monthlyMap), values: Object.values(monthlyMap).map(v => parseFloat(v.toFixed(2))) },
+  };
+}
+
 

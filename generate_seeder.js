@@ -25,7 +25,8 @@ const headers = [
   'free_heap',
   'wifi_rssi',
   'sd_status',
-  'lux_val'
+  'lux_val',
+  'sunshine_hours_daily'
 ];
 
 const rows = [headers.join(',')];
@@ -40,6 +41,7 @@ const endMs = endUtc.getTime();
 
 let uptimeSec = 259200; // Starting uptime
 let whDaily = 0.0;
+let sunshineAccumulator = 0.0;
 let lastWibDay = -1;
 
 while (currentMs <= endMs) {
@@ -63,6 +65,7 @@ while (currentMs <= endMs) {
   // Reset daily energy accumulator on a new day
   if (lastWibDay !== -1 && wibDay !== lastWibDay) {
     whDaily = 0.0;
+    sunshineAccumulator = 0.0;
   }
   lastWibDay = wibDay;
 
@@ -82,6 +85,9 @@ while (currentMs <= endMs) {
 
     // Daily Wh accumulation (Power * 10/60 hours)
     whDaily += p_pv * (stepMinutes / 60);
+    if (p_pv > 5 || lux_val > 10000) {
+      sunshineAccumulator += stepMinutes / 60;
+    }
 
     const v_bat = parseFloat((12.6 + 1.8 * sunFactor * noise).toFixed(2));
     const scc_eff = parseFloat((92.0 + 6.0 * sunFactor).toFixed(1));
@@ -118,7 +124,8 @@ while (currentMs <= endMs) {
       free_heap,
       wifi_rssi,
       'MOUNTED',
-      lux_val.toFixed(1)
+      lux_val.toFixed(1),
+      sunshineAccumulator.toFixed(2)
     ];
 
     rows.push(row.join(','));

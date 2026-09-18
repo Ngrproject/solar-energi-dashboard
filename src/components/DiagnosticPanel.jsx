@@ -1,9 +1,12 @@
 import React from 'react';
-import { ShieldCheck, HardDrive, Wifi, Cpu, Thermometer, Clock, Activity } from 'lucide-react';
+import { ShieldCheck, HardDrive, Wifi, Cpu, Thermometer, Clock, Activity, Moon } from 'lucide-react';
 
 function DiagnosticPanel({ diagnostics }) {
   const {
     isOnline = false,
+    statusLabel = 'OFFLINE',
+    statusType = 'offline',
+    statusDescription = '',
     uptimeFormatted = '0 Hari, 0 Jam, 0 Mnt',
     espTemp = 0,
     tempStatus = 'NORMAL',
@@ -35,26 +38,36 @@ function DiagnosticPanel({ diagnostics }) {
           {/* Status Koneksi */}
           <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
             <div className="text-[11px] text-slate-500 uppercase font-semibold flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-emerald-500" /> Status Koneksi
+              <Activity className="w-3.5 h-3.5 text-blue-600" /> Status Device
             </div>
             <div className="mt-1.5 flex items-center gap-2">
-              {isOnline ? (
+              {statusType === 'online' ? (
                 <>
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                   </span>
-                  <span className="font-bold text-emerald-700 text-sm">ONLINE</span>
+                  <span className="font-bold text-emerald-700 text-xs">ONLINE</span>
+                </>
+              ) : statusType === 'standby' ? (
+                <>
+                  <span className="relative flex h-2.5 w-2.5 items-center justify-center">
+                    <Moon className="w-3 h-3 text-indigo-500" />
+                  </span>
+                  <span className="font-bold text-indigo-700 text-xs" title="Device Standby / Sleep di malam hari">STANDBY (SLEEP)</span>
                 </>
               ) : (
                 <>
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
                   </span>
-                  <span className="font-bold text-rose-600 text-sm">OFFLINE</span>
+                  <span className="font-bold text-rose-600 text-xs">OFFLINE</span>
                 </>
               )}
             </div>
+            {statusDescription && (
+              <div className="text-[10px] text-slate-400 font-medium mt-0.5">{statusDescription}</div>
+            )}
           </div>
 
           {/* ESP32 Uptime */}

@@ -33,6 +33,13 @@ const METRIC_CONFIG = {
     yAxisName: 'Tegangan (Volt)',
     areaColor: 'rgba(236, 72, 153, 0.18)',
   },
+  sunshine_hours_daily: {
+    name: 'Lama Penyinaran (Sunshine)',
+    unit: 'Jam',
+    color: '#f59e0b', // Amber
+    yAxisName: 'Durasi (Jam)',
+    areaColor: 'rgba(245, 158, 11, 0.18)',
+  },
 };
 
 function LuxComparisonChart({ logs = [] }) {
@@ -177,6 +184,7 @@ function LuxComparisonChart({ logs = [] }) {
               <option value="p_bat">Daya Baterai (P_BAT Watt)</option>
               <option value="v_pv">Tegangan PV (V_PV Volt)</option>
               <option value="v_bat">Tegangan Baterai (V_BAT Volt)</option>
+              <option value="sunshine_hours_daily">Lama Penyinaran (Jam)</option>
             </select>
           </div>
 
