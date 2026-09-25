@@ -8,25 +8,24 @@ const __dirname = path.dirname(__filename);
 // Target CSV output path
 const outputPath = path.join(__dirname, 'Log_2026_09_Seeder.csv');
 
-// Header matching Google Sheets schema
+// Header matching ESP32 SD Card & Google Sheets schema (16 columns)
 const headers = [
-  'timestamp',
-  'v_pv',
-  'i_pv',
-  'p_pv',
-  'wh_pv_daily',
-  'v_bat',
-  'i_bat',
-  'p_bat',
-  'scc_eff',
-  'load_status',
-  'uptime_sec',
-  'esp_temp',
-  'free_heap',
-  'wifi_rssi',
-  'sd_status',
-  'lux_val',
-  'sunshine_hours_daily'
+  'TIMESTAMP',
+  'V_PV',
+  'I_PV',
+  'P_PV',
+  'WH_DAILY',
+  'LUX',
+  'SUNSHINE_JAM',
+  'V_BAT',
+  'I_BAT',
+  'P_BAT',
+  'SCC_EFF',
+  'DUMP_LOAD_PWM',
+  'UPTIME_SEC',
+  'ESP_TEMP',
+  'FREE_HEAP',
+  'SD_STATUS'
 ];
 
 const rows = [headers.join(',')];
@@ -95,18 +94,15 @@ while (currentMs <= endMs) {
     const i_bat = v_bat > 0 ? parseFloat((p_bat / v_bat).toFixed(2)) : 0.0;
 
     // Dump Load Duty Cycle PWM based on solar power generation
-    let load_status = 'OFF';
+    let dump_load_pwm = 0;
     if (p_pv > 35) {
-      const pwmPct = Math.min(100, Math.max(15, Math.round(((p_pv - 35) / 55) * 85 + 15)));
-      load_status = `PWM ${pwmPct}%`;
+      dump_load_pwm = Math.min(100, Math.max(15, Math.round(((p_pv - 35) / 55) * 85 + 15)));
     } else if (p_pv > 15) {
-      const pwmPct = Math.min(45, Math.max(10, Math.round(((p_pv - 15) / 20) * 35 + 10)));
-      load_status = `PWM ${pwmPct}%`;
+      dump_load_pwm = Math.min(45, Math.max(10, Math.round(((p_pv - 15) / 20) * 35 + 10)));
     }
 
     const esp_temp = parseFloat((31.5 + (p_pv > 10 ? p_pv / 7 : 0) + (Math.random() * 1.5 - 0.75)).toFixed(1));
     const free_heap = Math.floor(212000 + Math.random() * 14000);
-    const wifi_rssi = -64 + Math.floor(Math.random() * 6 - 3);
 
     const row = [
       timestampUtcStr,
@@ -114,18 +110,17 @@ while (currentMs <= endMs) {
       i_pv.toFixed(2),
       p_pv.toFixed(2),
       whDaily.toFixed(2),
+      Math.round(lux_val),
+      sunshineAccumulator.toFixed(2),
       v_bat.toFixed(2),
       i_bat.toFixed(2),
       p_bat.toFixed(2),
       scc_eff.toFixed(1),
-      load_status,
+      dump_load_pwm,
       uptimeSec,
       esp_temp.toFixed(1),
       free_heap,
-      wifi_rssi,
-      'MOUNTED',
-      lux_val.toFixed(1),
-      sunshineAccumulator.toFixed(2)
+      'OK'
     ];
 
     rows.push(row.join(','));

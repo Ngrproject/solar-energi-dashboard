@@ -276,6 +276,8 @@ export function parseUtcTimestamp(str) {
  */
 function parseAndCleanRows(rawRows) {
   const validLogs = [];
+  let lastValidEspTemp = 35.0;
+  let lastValidHeap = 300000;
 
   rawRows.forEach((row) => {
     if (!row || typeof row !== 'object') return;
@@ -298,7 +300,9 @@ function parseAndCleanRows(rawRows) {
     const v_pv = parseFloat(cleanRow.v_pv || 0);
     const i_pv = parseFloat(cleanRow.i_pv || 0);
     const p_pv = parseFloat(cleanRow.p_pv || (v_pv * i_pv));
-    const wh_pv_daily = parseFloat(cleanRow.wh_pv_daily || 0);
+    
+    // Support WH_DAILY (ESP32 format) or wh_pv_daily
+    const wh_pv_daily = parseFloat(cleanRow.wh_daily ?? cleanRow.wh_pv_daily ?? 0);
 
     const v_bat = parseFloat(cleanRow.v_bat || 0);
     const i_bat = parseFloat(cleanRow.i_bat || 0);
@@ -306,22 +310,43 @@ function parseAndCleanRows(rawRows) {
 
     const scc_eff = parseFloat(cleanRow.scc_eff || 0);
     const uptime_sec = parseInt(cleanRow.uptime_sec || 0, 10);
-    const esp_temp = parseFloat(cleanRow.esp_temp || 0);
-    const free_heap = parseFloat(cleanRow.free_heap || 0);
-    const wifi_rssi = parseInt(cleanRow.wifi_rssi || -90, 10);
-
-    const load_status = parseLoadStatus(cleanRow.load_status);
-
-    const sd_status = String(cleanRow.sd_status || 'MOUNTED').toUpperCase();
     
-    let luxRaw = cleanRow.lux_val ?? cleanRow.lux ?? cleanRow.cahaya ?? cleanRow.lux_sensor;
+    // Fallback for esp_temp when cell in Google Sheets is empty string ""
+    let rawTemp = cleanRow.esp_temp ?? cleanRow.temp ?? cleanRow.temperature;
+    let parsedTemp = parseFloat(rawTemp);
+    if (!isNaN(parsedTemp) && parsedTemp > 0) {
+      lastValidEspTemp = parsedTemp;
+    }
+    const esp_temp = (!isNaN(parsedTemp) && parsedTemp > 0) ? parsedTemp : lastValidEspTemp;
+
+    // Fallback for free_heap when empty
+    let rawHeap = cleanRow.free_heap ?? cleanRow.heap;
+    let parsedHeap = parseFloat(rawHeap);
+    if (!isNaN(parsedHeap) && parsedHeap > 0) {
+      lastValidHeap = parsedHeap;
+    }
+    const free_heap = (!isNaN(parsedHeap) && parsedHeap > 0) ? parsedHeap : lastValidHeap;
+
+    const wifi_rssi = cleanRow.wifi_rssi !== undefined && cleanRow.wifi_rssi !== null && cleanRow.wifi_rssi !== ''
+      ? parseInt(cleanRow.wifi_rssi, 10)
+      : -65;
+
+    // Support DUMP_LOAD_PWM (ESP32 integer/string) or load_status
+    const rawLoad = cleanRow.dump_load_pwm ?? cleanRow.load_status;
+    const load_status = parseLoadStatus(rawLoad);
+
+    const sd_status = String(cleanRow.sd_status || 'OK').toUpperCase();
+    
+    // Support LUX (ESP32 format) or lux_val
+    let luxRaw = cleanRow.lux ?? cleanRow.lux_val ?? cleanRow.cahaya ?? cleanRow.lux_sensor;
     if (luxRaw === undefined || luxRaw === null || luxRaw === '') {
       const foundKey = Object.keys(cleanRow).find(k => k.includes('lux') || k.includes('cahaya'));
       if (foundKey) luxRaw = cleanRow[foundKey];
     }
     const lux_val = parseFloat(luxRaw || 0);
 
-    let sunshineRaw = cleanRow.sunshine_hours_daily ?? cleanRow.sunshine_duration ?? cleanRow.sunshine_hours ?? cleanRow.lama_penyinaran ?? cleanRow.sunshine;
+    // Support SUNSHINE_JAM (ESP32 format) or sunshine_hours_daily
+    let sunshineRaw = cleanRow.sunshine_jam ?? cleanRow.sunshine_hours_daily ?? cleanRow.sunshine_duration ?? cleanRow.sunshine_hours ?? cleanRow.lama_penyinaran ?? cleanRow.sunshine;
     if (sunshineRaw === undefined || sunshineRaw === null || sunshineRaw === '') {
       const foundKey = Object.keys(cleanRow).find(k => k.includes('sunshine') || k.includes('penyinaran'));
       if (foundKey) sunshineRaw = cleanRow[foundKey];
@@ -351,6 +376,7 @@ function parseAndCleanRows(rawRows) {
       p_bat: parseFloat(p_bat.toFixed(2)),
       scc_eff: parseFloat(scc_eff.toFixed(1)),
       load_status,
+      dump_load_pwm: typeof rawLoad === 'number' ? rawLoad : (parseInt(rawLoad, 10) || 0),
       uptime_sec,
       esp_temp: parseFloat(esp_temp.toFixed(1)),
       free_heap,
@@ -421,12 +447,13 @@ export function generateMockLogs() {
       const i_bat = v_bat > 0 ? parseFloat((p_bat / v_bat).toFixed(2)) : 0;
 
       let load_status = 'OFF';
+      let dump_load_pwm = 0;
       if (p_pv > 35) {
-        const pwmPct = Math.min(100, Math.max(15, Math.round(((p_pv - 35) / 55) * 85 + 15)));
-        load_status = `PWM ${pwmPct}%`;
+        dump_load_pwm = Math.min(100, Math.max(15, Math.round(((p_pv - 35) / 55) * 85 + 15)));
+        load_status = `PWM ${dump_load_pwm}%`;
       } else if (p_pv > 15) {
-        const pwmPct = Math.min(45, Math.max(10, Math.round(((p_pv - 15) / 20) * 35 + 10)));
-        load_status = `PWM ${pwmPct}%`;
+        dump_load_pwm = Math.min(45, Math.max(10, Math.round(((p_pv - 15) / 20) * 35 + 10)));
+        load_status = `PWM ${dump_load_pwm}%`;
       }
 
       uptimeCounter += stepMinutes * 60;
@@ -457,11 +484,12 @@ export function generateMockLogs() {
         p_bat,
         scc_eff,
         load_status,
+        dump_load_pwm,
         uptime_sec: uptimeCounter,
         esp_temp,
         free_heap,
         wifi_rssi,
-        sd_status: 'MOUNTED',
+        sd_status: 'OK',
         lux_val,
         sunshine_hours_daily: parseFloat(sunshineAccumulator.toFixed(2)),
       });

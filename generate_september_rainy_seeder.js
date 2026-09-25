@@ -9,25 +9,24 @@ const __dirname = path.dirname(__filename);
 const outputPath = path.join(__dirname, 'Log_2026_09_Seeder.csv');
 const outputPathRainy = path.join(__dirname, 'Log_2026_09_Musim_Hujan.csv');
 
-// Header matching Google Sheets & ESP32 SD Card schema
+// Header matching ESP32 SD Card & Google Sheets schema (16 columns)
 const headers = [
-  'timestamp',
-  'v_pv',
-  'i_pv',
-  'p_pv',
-  'wh_pv_daily',
-  'v_bat',
-  'i_bat',
-  'p_bat',
-  'scc_eff',
-  'load_status',
-  'uptime_sec',
-  'esp_temp',
-  'free_heap',
-  'wifi_rssi',
-  'sd_status',
-  'lux_val',
-  'sunshine_hours_daily'
+  'TIMESTAMP',
+  'V_PV',
+  'I_PV',
+  'P_PV',
+  'WH_DAILY',
+  'LUX',
+  'SUNSHINE_JAM',
+  'V_BAT',
+  'I_BAT',
+  'P_BAT',
+  'SCC_EFF',
+  'DUMP_LOAD_PWM',
+  'UPTIME_SEC',
+  'ESP_TEMP',
+  'FREE_HEAP',
+  'SD_STATUS'
 ];
 
 // Define Weather Profiles for each day of September (1 to 30)
@@ -158,20 +157,17 @@ while (currentMs <= endWibMs) {
     const i_bat = v_bat > 0 ? parseFloat((p_bat / v_bat).toFixed(2)) : 0.0;
 
     // Dump load PWM logic
-    let load_status = 'OFF';
+    let dump_load_pwm = 0;
     if (p_pv > 40) {
-      const pwmPct = Math.min(100, Math.max(15, Math.round(((p_pv - 40) / 50) * 85 + 15)));
-      load_status = `PWM ${pwmPct}%`;
+      dump_load_pwm = Math.min(100, Math.max(15, Math.round(((p_pv - 40) / 50) * 85 + 15)));
     } else if (p_pv > 18) {
-      const pwmPct = Math.min(40, Math.max(10, Math.round(((p_pv - 18) / 22) * 30 + 10)));
-      load_status = `PWM ${pwmPct}%`;
+      dump_load_pwm = Math.min(40, Math.max(10, Math.round(((p_pv - 18) / 22) * 30 + 10)));
     }
 
     // Ambient/ESP temperature drops during rain
     const tempBase = weatherType === 'heavy_rain' ? 28.5 : 31.0;
     const esp_temp = parseFloat((tempBase + (p_pv / 8) + (Math.random() * 1.2 - 0.6)).toFixed(1));
     const free_heap = Math.floor(211000 + Math.random() * 15000);
-    const wifi_rssi = -65 + Math.floor(Math.random() * 6 - 3);
 
     const row = [
       timestampUtcStr,
@@ -179,18 +175,17 @@ while (currentMs <= endWibMs) {
       i_pv.toFixed(2),
       p_pv.toFixed(2),
       whDaily.toFixed(2),
+      Math.round(lux_val),
+      sunshineAccumulator.toFixed(2),
       v_bat.toFixed(2),
       i_bat.toFixed(2),
       p_bat.toFixed(2),
       scc_eff.toFixed(1),
-      load_status,
+      dump_load_pwm,
       uptimeSec,
       esp_temp.toFixed(1),
       free_heap,
-      wifi_rssi,
-      'MOUNTED',
-      lux_val.toFixed(1),
-      sunshineAccumulator.toFixed(2)
+      'OK'
     ];
 
     rows.push(row.join(','));

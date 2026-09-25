@@ -144,18 +144,18 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                 <th className="p-3.5">V_PV (V)</th>
                 <th className="p-3.5">I_PV (A)</th>
                 <th className="p-3.5 text-blue-600">P_PV (W)</th>
-                <th className="p-3.5 text-amber-600">Wh Daily</th>
-                <th className="p-3.5 text-amber-500">Lux (lx)</th>
-                <th className="p-3.5 text-orange-600">Sunshine (Jam)</th>
+                <th className="p-3.5 text-amber-600">WH_DAILY</th>
+                <th className="p-3.5 text-amber-500">LUX (lx)</th>
+                <th className="p-3.5 text-orange-600">SUNSHINE_JAM</th>
                 <th className="p-3.5">V_BAT (V)</th>
                 <th className="p-3.5">I_BAT (A)</th>
                 <th className="p-3.5 text-emerald-600">P_BAT (W)</th>
-                <th className="p-3.5">SCC Eff (%)</th>
-                <th className="p-3.5">Dump Load (PWM)</th>
-                <th className="p-3.5">Uptime (s)</th>
-                <th className="p-3.5">Temp (°C)</th>
-                <th className="p-3.5">Wi-Fi (dBm)</th>
-                <th className="p-3.5">SD Status</th>
+                <th className="p-3.5">SCC_EFF (%)</th>
+                <th className="p-3.5">DUMP_LOAD_PWM</th>
+                <th className="p-3.5">UPTIME_SEC</th>
+                <th className="p-3.5">ESP_TEMP (°C)</th>
+                <th className="p-3.5">FREE_HEAP</th>
+                <th className="p-3.5">SD_STATUS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono text-slate-700">
@@ -186,9 +186,13 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                     </td>
                     <td className="p-3.5 text-slate-500">{log.uptime_sec}</td>
                     <td className="p-3.5 text-amber-600 font-semibold">{log.esp_temp}</td>
-                    <td className="p-3.5 text-slate-500">{log.wifi_rssi}</td>
+                    <td className="p-3.5 text-slate-500">{Number(log.free_heap || 0).toLocaleString('id-ID')}</td>
                     <td className="p-3.5 font-sans">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-emerald-700 border border-slate-200">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                        log.sd_status === 'ERROR' || log.sd_status === 'FAIL' 
+                          ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}>
                         {log.sd_status}
                       </span>
                     </td>
@@ -196,7 +200,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={15} className="p-12 text-center text-slate-400 font-sans">
+                  <td colSpan={16} className="p-12 text-center text-slate-400 font-sans">
                     <div className="max-w-xs mx-auto text-center">
                       <Filter className="w-8 h-8 mx-auto text-slate-300 mb-2" />
                       <p className="font-semibold text-slate-600">Tidak Ada Data Ditemukan</p>

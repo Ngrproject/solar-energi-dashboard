@@ -3,11 +3,24 @@ import path from 'path';
 
 function generateDummySolarData() {
   const rows = [];
-  // Header row matching exact database schema
+  // Header row matching exact ESP32 SD Card / Google Sheets schema (16 columns)
   const headers = [
-    'timestamp', 'v_pv', 'i_pv', 'p_pv', 'wh_pv_daily',
-    'v_bat', 'i_bat', 'p_bat', 'scc_eff', 'load_status',
-    'uptime_sec', 'esp_temp', 'free_heap', 'wifi_rssi', 'sd_status', 'lux_val'
+    'TIMESTAMP',
+    'V_PV',
+    'I_PV',
+    'P_PV',
+    'WH_DAILY',
+    'LUX',
+    'SUNSHINE_JAM',
+    'V_BAT',
+    'I_BAT',
+    'P_BAT',
+    'SCC_EFF',
+    'DUMP_LOAD_PWM',
+    'UPTIME_SEC',
+    'ESP_TEMP',
+    'FREE_HEAP',
+    'SD_STATUS'
   ];
 
   rows.push(headers);
@@ -16,6 +29,7 @@ function generateDummySolarData() {
   const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   let uptimeCounter = 172800; // 48 hours uptime
   let whAccumulator = 0.0;
+  let sunshineAccumulator = 0.0;
 
   for (let i = 0; i < 144; i++) {
     const timestamp = new Date(startTime.getTime() + i * 10 * 60 * 1000);
@@ -24,9 +38,10 @@ function generateDummySolarData() {
 
     if (hour === 0 && minute === 0) {
       whAccumulator = 0.0;
+      sunshineAccumulator = 0.0;
     }
 
-    let v_pv, i_pv, p_pv, v_bat, i_bat, p_bat, scc_eff, lux_val;
+    let v_pv, i_pv, p_pv, v_bat, i_bat, p_bat, scc_eff, lux_val, dump_load_pwm;
 
     if (hour >= 6 && hour <= 18) {
       const sunFactor = Math.max(0, Math.sin(((hour - 6 + minute / 60) / 12) * Math.PI));
@@ -34,23 +49,29 @@ function generateDummySolarData() {
 
       v_pv = (16.5 + 2.5 * sunFactor * noise).toFixed(2);
       i_pv = (4.8 * sunFactor * noise).toFixed(2);
-      p_pv = (v_pv * i_pv).toFixed(2);
-      lux_val = (sunFactor * noise * 85000 + Math.random() * 500).toFixed(1);
+      p_pv = (parseFloat(v_pv) * parseFloat(i_pv)).toFixed(2);
+      lux_val = Math.round(sunFactor * noise * 85000 + Math.random() * 500);
 
       v_bat = (12.6 + 1.6 * sunFactor * noise).toFixed(2);
       scc_eff = (92.5 + 5.5 * sunFactor).toFixed(1);
-      p_bat = (p_pv * (scc_eff / 100)).toFixed(2);
-      i_bat = v_bat > 0 ? (p_bat / v_bat).toFixed(2) : '0.00';
+      p_bat = (parseFloat(p_pv) * (parseFloat(scc_eff) / 100)).toFixed(2);
+      i_bat = parseFloat(v_bat) > 0 ? (parseFloat(p_bat) / parseFloat(v_bat)).toFixed(2) : '0.00';
+      dump_load_pwm = parseFloat(p_pv) > 35 ? Math.min(100, Math.round(((parseFloat(p_pv) - 35) / 55) * 85 + 15)) : 0;
+
+      if (parseFloat(p_pv) > 5 || lux_val > 10000) {
+        sunshineAccumulator += 10 / 60;
+      }
     } else {
       v_pv = (0.2 + Math.random() * 0.1).toFixed(2);
       i_pv = '0.00';
       p_pv = '0.00';
-      lux_val = (Math.random() * 10).toFixed(1);
+      lux_val = Math.round(Math.random() * 10);
 
       v_bat = (12.4 - Math.random() * 0.2).toFixed(2);
       i_bat = '-0.35';
-      p_bat = (v_bat * i_bat).toFixed(2);
+      p_bat = (parseFloat(v_bat) * parseFloat(i_bat)).toFixed(2);
       scc_eff = '0.0';
+      dump_load_pwm = 0;
     }
 
     whAccumulator += parseFloat(p_pv) / 6;
@@ -58,7 +79,6 @@ function generateDummySolarData() {
 
     const esp_temp = (32.0 + (parseFloat(p_pv) > 10 ? parseFloat(p_pv) / 8 : 0) + (Math.random() * 2 - 1)).toFixed(1);
     const free_heap = Math.floor(215000 + Math.random() * 12000);
-    const wifi_rssi = -62 + Math.floor(Math.random() * 8 - 4);
 
     const year = timestamp.getFullYear();
     const month = String(timestamp.getMonth() + 1).padStart(2, '0');
@@ -74,17 +94,17 @@ function generateDummySolarData() {
       i_pv,
       p_pv,
       whAccumulator.toFixed(2),
+      lux_val,
+      sunshineAccumulator.toFixed(2),
       v_bat,
       i_bat,
       p_bat,
       scc_eff,
-      'ON',
+      dump_load_pwm,
       uptimeCounter,
       esp_temp,
       free_heap,
-      wifi_rssi,
-      'MOUNTED',
-      lux_val
+      'OK'
     ]);
   }
 

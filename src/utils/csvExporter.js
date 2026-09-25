@@ -26,47 +26,53 @@ export function exportToCsv(logs, dateFrom, dateTo) {
   filtered.sort((a, b) => a.dateObj - b.dateObj);
 
   const headers = [
-    'timestamp',
-    'v_pv',
-    'i_pv',
-    'p_pv',
-    'wh_pv_daily',
-    'v_bat',
-    'i_bat',
-    'p_bat',
-    'scc_eff',
-    'load_status',
-    'uptime_sec',
-    'esp_temp',
-    'free_heap',
-    'wifi_rssi',
-    'sd_status',
-    'lux_val',
-    'sunshine_hours_daily'
+    'TIMESTAMP',
+    'V_PV',
+    'I_PV',
+    'P_PV',
+    'WH_DAILY',
+    'LUX',
+    'SUNSHINE_JAM',
+    'V_BAT',
+    'I_BAT',
+    'P_BAT',
+    'SCC_EFF',
+    'DUMP_LOAD_PWM',
+    'UPTIME_SEC',
+    'ESP_TEMP',
+    'FREE_HEAP',
+    'SD_STATUS'
   ];
 
   const csvRows = [];
   csvRows.push(headers.join(','));
 
   filtered.forEach(row => {
+    let pwmVal = 0;
+    if (typeof row.dump_load_pwm === 'number') {
+      pwmVal = row.dump_load_pwm;
+    } else {
+      const match = String(row.load_status || '').match(/(\d+)/);
+      if (match) pwmVal = parseInt(match[1], 10);
+    }
+
     const line = [
-      `"${row.timestamp || ''}"`,
+      row.timestamp || '',
       Number(row.v_pv || 0).toFixed(2),
       Number(row.i_pv || 0).toFixed(2),
       Number(row.p_pv || 0).toFixed(2),
       Number(row.wh_pv_daily || 0).toFixed(2),
+      Math.round(Number(row.lux_val || 0)),
+      Number(row.sunshine_hours_daily || 0).toFixed(2),
       Number(row.v_bat || 0).toFixed(2),
       Number(row.i_bat || 0).toFixed(2),
       Number(row.p_bat || 0).toFixed(2),
       Number(row.scc_eff || 0).toFixed(1),
-      `"${row.load_status || 'OFF'}"`,
+      pwmVal,
       parseInt(row.uptime_sec || 0, 10),
       Number(row.esp_temp || 0).toFixed(1),
       parseInt(row.free_heap || 0, 10),
-      parseInt(row.wifi_rssi || -60, 10),
-      `"${row.sd_status || 'MOUNTED'}"`,
-      Number(row.lux_val || 0).toFixed(1),
-      Number(row.sunshine_hours_daily || 0).toFixed(2)
+      row.sd_status || 'OK'
     ];
     csvRows.push(line.join(','));
   });
