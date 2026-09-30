@@ -30,6 +30,7 @@ function SummaryCards({ latestRecord, logs = [] }) {
     v_bat = 0,
     i_bat = 0,
     p_bat = 0,
+    pv_normalized = latestRecord?.scc_eff ?? 0,
     scc_eff = 0,
     load_status = 'OFF',
     lux_val = 0,
@@ -189,8 +190,8 @@ function SummaryCards({ latestRecord, logs = [] }) {
 
         <div className="mt-4 grid grid-cols-2 gap-2 pt-3 border-t border-slate-100">
           <div>
-            <div className="text-[11px] text-slate-500 font-medium truncate">Efisiensi SCC</div>
-            <div className="text-sm font-bold font-mono text-slate-800 mt-0.5">{scc_eff}<span className="text-[10px] text-slate-400">%</span></div>
+            <div className="text-[11px] text-slate-500 font-medium truncate">Normalisasi PV</div>
+            <div className="text-sm font-bold font-mono text-slate-800 mt-0.5">{pv_normalized}<span className="text-[10px] text-slate-400">%</span></div>
           </div>
           <div>
             <div className="text-[11px] text-slate-500 font-medium truncate">Dump Load Status</div>

@@ -58,7 +58,7 @@ Database menggunakan **Google Sheets** sebagai *Cloud Time-Series Database* dan 
 | 6 | `v_bat` | Float | Volt (V) | Tegangan pada terminal Baterai ($V_{BAT}$). |
 | 7 | `i_bat` | Float | Ampere (A) | Arus pengisian/pengosongan Baterai ($I_{BAT}$). |
 | 8 | `p_bat` | Float | Watt (W) | Daya Baterai ($P_{BAT} = V_{BAT} \times I_{BAT}$). |
-| 9 | `scc_eff` | Float | Persen (%) | Efisiensi Solar Charge Controller (SCC). |
+| 9 | `pv_normalized` | Float | Persen (%) / Index | Normalisasi daya/output Panel Surya (PV Normalized). |
 | 10 | `load_status` | String | `OFF` / `PWM X%` | Status Duty Cycle PWM MOSFET saat membuang kelebihan daya ke beban bohlam paralel (misal: `OFF`, `PWM 45%`, `PWM 100%`). |
 | 11 | `uptime_sec` | Integer | Detik (s) | Total waktu ESP32 aktif sejak booting terakhir. |
 | 12 | `esp_temp` | Float | °C | Suhu internal/box mikrokontroler ESP32. |

@@ -21,7 +21,7 @@ const headers = [
   'V_BAT',
   'I_BAT',
   'P_BAT',
-  'SCC_EFF',
+  'PV_NORMALIZED',
   'DUMP_LOAD_PWM',
   'UPTIME_SEC',
   'ESP_TEMP',
@@ -150,7 +150,7 @@ while (currentMs <= endWibMs) {
       sunshineAccumulator += stepMinutes / 60;
     }
 
-    // Battery dynamics
+    const pv_normalized = parseFloat(((p_pv / 50.0) * 100).toFixed(1));
     const v_bat = parseFloat((12.4 + 1.9 * effectiveSun).toFixed(2));
     const scc_eff = parseFloat((90.0 + 7.5 * Math.min(1.0, effectiveSun * 1.2)).toFixed(1));
     const p_bat = parseFloat((p_pv * (scc_eff / 100)).toFixed(2));
@@ -180,7 +180,7 @@ while (currentMs <= endWibMs) {
       v_bat.toFixed(2),
       i_bat.toFixed(2),
       p_bat.toFixed(2),
-      scc_eff.toFixed(1),
+      pv_normalized.toFixed(1),
       dump_load_pwm,
       uptimeSec,
       esp_temp.toFixed(1),

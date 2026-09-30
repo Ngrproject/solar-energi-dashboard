@@ -147,7 +147,7 @@ class SolarDashboardController extends Controller
 
         $expectedColumns = [
             'timestamp', 'v_pv', 'i_pv', 'p_pv', 'wh_pv_daily',
-            'v_bat', 'i_bat', 'p_bat', 'scc_eff', 'load_status',
+            'v_bat', 'i_bat', 'p_bat', 'pv_normalized', 'load_status',
             'uptime_sec', 'esp_temp', 'free_heap', 'wifi_rssi', 'sd_status', 'lux_val'
         ];
 
@@ -160,21 +160,22 @@ class SolarDashboardController extends Controller
             }
 
             // Numeric casting
-            $item['v_pv']         = (float) ($item['v_pv'] ?? 0);
-            $item['i_pv']         = (float) ($item['i_pv'] ?? 0);
-            $item['p_pv']         = (float) ($item['p_pv'] ?? 0);
-            $item['wh_pv_daily']  = (float) ($item['wh_pv_daily'] ?? 0);
-            $item['v_bat']        = (float) ($item['v_bat'] ?? 0);
-            $item['i_bat']        = (float) ($item['i_bat'] ?? 0);
-            $item['p_bat']        = (float) ($item['p_bat'] ?? 0);
-            $item['scc_eff']      = (float) ($item['scc_eff'] ?? 0);
-            $item['uptime_sec']   = (int)   ($item['uptime_sec'] ?? 0);
-            $item['esp_temp']     = (float) ($item['esp_temp'] ?? 0);
-            $item['free_heap']    = (float) ($item['free_heap'] ?? 0);
-            $item['wifi_rssi']    = (int)   ($item['wifi_rssi'] ?? 0);
-            $item['lux_val']      = (float) ($item['lux_val'] ?? 0);
-            $item['load_status']  = strtoupper($item['load_status'] ?: 'OFF');
-            $item['sd_status']    = strtoupper($item['sd_status'] ?: 'READY');
+            $item['v_pv']          = (float) ($item['v_pv'] ?? 0);
+            $item['i_pv']          = (float) ($item['i_pv'] ?? 0);
+            $item['p_pv']          = (float) ($item['p_pv'] ?? 0);
+            $item['wh_pv_daily']   = (float) ($item['wh_pv_daily'] ?? 0);
+            $item['v_bat']         = (float) ($item['v_bat'] ?? 0);
+            $item['i_bat']         = (float) ($item['i_bat'] ?? 0);
+            $item['p_bat']         = (float) ($item['p_bat'] ?? 0);
+            $item['pv_normalized'] = (float) ($item['pv_normalized'] ?? $item['scc_eff'] ?? 0);
+            $item['scc_eff']       = $item['pv_normalized'];
+            $item['uptime_sec']    = (int)   ($item['uptime_sec'] ?? 0);
+            $item['esp_temp']      = (float) ($item['esp_temp'] ?? 0);
+            $item['free_heap']     = (float) ($item['free_heap'] ?? 0);
+            $item['wifi_rssi']     = (int)   ($item['wifi_rssi'] ?? 0);
+            $item['lux_val']       = (float) ($item['lux_val'] ?? 0);
+            $item['load_status']   = strtoupper($item['load_status'] ?: 'OFF');
+            $item['sd_status']     = strtoupper($item['sd_status'] ?: 'READY');
 
             // Parse timestamp safely
             try {
@@ -254,7 +255,8 @@ class SolarDashboardController extends Controller
             'i_bat'         => round($latest['i_bat'], 2),
             'p_bat'         => round($latest['p_bat'], 2),
             'wh_pv_daily'   => round($latest['wh_pv_daily'], 2),
-            'scc_eff'       => round($latest['scc_eff'], 1),
+            'pv_normalized' => round($latest['pv_normalized'] ?? $latest['scc_eff'] ?? 0, 1),
+            'scc_eff'       => round($latest['pv_normalized'] ?? $latest['scc_eff'] ?? 0, 1),
             'load_status'   => $latest['load_status'] ?: 'ON',
             
             // Delta / Trends
@@ -333,6 +335,7 @@ class SolarDashboardController extends Controller
                 'v_bat'            => $v_bat,
                 'i_bat'            => $i_bat,
                 'p_bat'            => $p_bat,
+                'pv_normalized'    => round(($p_pv / 50) * 100, 1),
                 'scc_eff'          => $scc_eff,
                 'load_status'      => 'ON',
                 'uptime_sec'       => $uptimeCounter,
@@ -362,6 +365,7 @@ class SolarDashboardController extends Controller
             'v_bat'            => 0,
             'i_bat'            => 0,
             'p_bat'            => 0,
+            'pv_normalized'    => 0,
             'scc_eff'          => 0,
             'load_status'      => 'OFF',
             'uptime_sec'       => 0,

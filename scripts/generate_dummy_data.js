@@ -15,7 +15,7 @@ function generateDummySolarData() {
     'V_BAT',
     'I_BAT',
     'P_BAT',
-    'SCC_EFF',
+    'PV_NORMALIZED',
     'DUMP_LOAD_PWM',
     'UPTIME_SEC',
     'ESP_TEMP',
@@ -41,7 +41,7 @@ function generateDummySolarData() {
       sunshineAccumulator = 0.0;
     }
 
-    let v_pv, i_pv, p_pv, v_bat, i_bat, p_bat, scc_eff, lux_val, dump_load_pwm;
+    let v_pv, i_pv, p_pv, v_bat, i_bat, p_bat, scc_eff, pv_normalized, lux_val, dump_load_pwm;
 
     if (hour >= 6 && hour <= 18) {
       const sunFactor = Math.max(0, Math.sin(((hour - 6 + minute / 60) / 12) * Math.PI));
@@ -50,6 +50,7 @@ function generateDummySolarData() {
       v_pv = (16.5 + 2.5 * sunFactor * noise).toFixed(2);
       i_pv = (4.8 * sunFactor * noise).toFixed(2);
       p_pv = (parseFloat(v_pv) * parseFloat(i_pv)).toFixed(2);
+      pv_normalized = ((parseFloat(p_pv) / 50.0) * 100).toFixed(1);
       lux_val = Math.round(sunFactor * noise * 85000 + Math.random() * 500);
 
       v_bat = (12.6 + 1.6 * sunFactor * noise).toFixed(2);
@@ -65,6 +66,7 @@ function generateDummySolarData() {
       v_pv = (0.2 + Math.random() * 0.1).toFixed(2);
       i_pv = '0.00';
       p_pv = '0.00';
+      pv_normalized = '0.0';
       lux_val = Math.round(Math.random() * 10);
 
       v_bat = (12.4 - Math.random() * 0.2).toFixed(2);
@@ -99,7 +101,7 @@ function generateDummySolarData() {
       v_bat,
       i_bat,
       p_bat,
-      scc_eff,
+      pv_normalized,
       dump_load_pwm,
       uptimeCounter,
       esp_temp,

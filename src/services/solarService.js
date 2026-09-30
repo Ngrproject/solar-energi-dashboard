@@ -308,7 +308,8 @@ function parseAndCleanRows(rawRows) {
     const i_bat = parseFloat(cleanRow.i_bat || 0);
     const p_bat = parseFloat(cleanRow.p_bat || (v_bat * i_bat));
 
-    const scc_eff = parseFloat(cleanRow.scc_eff || 0);
+    const pv_normalized = parseFloat(cleanRow.pv_normalized ?? cleanRow['pv normalized'] ?? cleanRow.pv_norm ?? cleanRow.scc_eff ?? 0);
+    const scc_eff = pv_normalized;
     const uptime_sec = parseInt(cleanRow.uptime_sec || 0, 10);
     
     // Fallback for esp_temp when cell in Google Sheets is empty string ""
@@ -374,6 +375,7 @@ function parseAndCleanRows(rawRows) {
       v_bat,
       i_bat,
       p_bat: parseFloat(p_bat.toFixed(2)),
+      pv_normalized: parseFloat(pv_normalized.toFixed(1)),
       scc_eff: parseFloat(scc_eff.toFixed(1)),
       load_status,
       dump_load_pwm: typeof rawLoad === 'number' ? rawLoad : (parseInt(rawLoad, 10) || 0),
@@ -432,6 +434,7 @@ export function generateMockLogs() {
       const v_pv = parseFloat((16.5 + 3.0 * sunFactor * noise).toFixed(2));
       const i_pv = parseFloat((5.2 * sunFactor * noise).toFixed(2));
       const p_pv = parseFloat((v_pv * i_pv).toFixed(2));
+      const pv_normalized = parseFloat(((p_pv / 50.0) * 100).toFixed(1));
 
       // Light Intensity (Lux) based on sun position & noise (Peak ~85,000 Lux)
       const lux_val = parseFloat((sunFactor * noise * 85000 + Math.random() * 500).toFixed(1));
@@ -482,6 +485,7 @@ export function generateMockLogs() {
         v_bat,
         i_bat,
         p_bat,
+        pv_normalized,
         scc_eff,
         load_status,
         dump_load_pwm,

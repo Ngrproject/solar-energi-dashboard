@@ -40,6 +40,13 @@ const METRIC_CONFIG = {
     yAxisName: 'Durasi (Jam)',
     areaColor: 'rgba(245, 158, 11, 0.18)',
   },
+  pv_normalized: {
+    name: 'Normalisasi PV (PV_NORMALIZED)',
+    unit: '%',
+    color: '#0284c7', // Sky blue
+    yAxisName: 'Normalisasi (%)',
+    areaColor: 'rgba(2, 132, 199, 0.18)',
+  },
 };
 
 function LuxComparisonChart({ logs = [] }) {
@@ -184,6 +191,7 @@ function LuxComparisonChart({ logs = [] }) {
               <option value="p_bat">Daya Baterai (P_BAT Watt)</option>
               <option value="v_pv">Tegangan PV (V_PV Volt)</option>
               <option value="v_bat">Tegangan Baterai (V_BAT Volt)</option>
+              <option value="pv_normalized">Normalisasi PV (PV_NORMALIZED %)</option>
               <option value="sunshine_hours_daily">Lama Penyinaran (Jam)</option>
             </select>
           </div>

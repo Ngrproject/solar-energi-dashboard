@@ -21,6 +21,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
         String(logVal(item.v_pv)).includes(term) ||
         String(logVal(item.p_pv)).includes(term) ||
         String(logVal(item.lux_val)).includes(term) ||
+        String(logVal(item.pv_normalized)).includes(term) ||
         String(logVal(item.sunshine_hours_daily)).includes(term) ||
         String(item.load_status).toLowerCase().includes(term) ||
         String(item.sd_status).toLowerCase().includes(term);
@@ -150,7 +151,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                 <th className="p-3.5">V_BAT (V)</th>
                 <th className="p-3.5">I_BAT (A)</th>
                 <th className="p-3.5 text-emerald-600">P_BAT (W)</th>
-                <th className="p-3.5">SCC_EFF (%)</th>
+                <th className="p-3.5">PV_NORMALIZED</th>
                 <th className="p-3.5">DUMP_LOAD_PWM</th>
                 <th className="p-3.5">UPTIME_SEC</th>
                 <th className="p-3.5">ESP_TEMP (°C)</th>
@@ -172,7 +173,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                     <td className="p-3.5">{Number(log.v_bat).toFixed(2)}</td>
                     <td className="p-3.5">{Number(log.i_bat).toFixed(2)}</td>
                     <td className="p-3.5 text-emerald-600 font-bold">{Number(log.p_bat).toFixed(2)}</td>
-                    <td className="p-3.5">{Number(log.scc_eff).toFixed(1)}%</td>
+                    <td className="p-3.5">{Number(log.pv_normalized ?? log.scc_eff ?? 0).toFixed(1)}</td>
                     <td className="p-3.5 font-sans">
                       {parseLoadStatus(log.load_status) !== 'OFF' ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">

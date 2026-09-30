@@ -22,7 +22,7 @@ Web Dashboard Monitoring Energi Panel Surya (50Wp/100Wp) berbasis **React** (Vit
 2. **Real-Time Summary Cards**
    - **Panel Surya (PV)**: Tegangan (`v_pv`), Arus (`i_pv`), Daya (`p_pv`), dan Intensitas Cahaya (`lux_val` Lux) dengan badge kondisi cahaya (`Sangat Cerah`, `Cerah`, `Sedang`, `Redup`, `Gelap`).
    - **Pengisian Baterai (BAT)**: Tegangan (`v_bat`), Arus (`i_bat`), Daya (`p_bat`), Status (`CHARGING`/`DISCHARGING`).
-   - **Sistem Control & Akumulasi**: Energi Harian (`wh_pv_daily`), Efisiensi SCC (`scc_eff` %), Status Relay Load (`load_status` ON/OFF).
+   - **Sistem Control & Akumulasi**: Energi Harian (`wh_pv_daily`), Normalisasi PV (`pv_normalized` %), Status Relay Load (`load_status` ON/OFF).
 
 3. **Interactive Apache ECharts Panels**
    - **Line Chart 1 (`PowerEChart.jsx`)**: Kurva Daya Panel (`p_pv`) vs Daya Baterai (`p_bat`) dalam Watt.
