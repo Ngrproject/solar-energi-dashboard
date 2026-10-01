@@ -563,8 +563,8 @@ export function calculateDiagnostics(latestRecord) {
     statusDescription = 'Non-Aktif (Malam Hari)';
   } else {
     // Daytime (06:00 - 18:00 WIB): Solar panel active
-    // User requirement: Strict 3-minute timeout threshold
-    if (diffMinutes <= 3) {
+    // User requirement: Strict 30-minute timeout threshold
+    if (diffMinutes <= 30) {
       isOnline = true;
       statusLabel = 'ONLINE';
       statusType = 'online';

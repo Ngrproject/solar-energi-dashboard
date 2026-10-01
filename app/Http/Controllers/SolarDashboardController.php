@@ -195,11 +195,11 @@ class SolarDashboardController extends Controller
      */
     protected function calculateDiagnostics(array $latestRecord): array
     {
-        // 1. Connection Status (ONLINE if log is within 5 minutes or generated recently)
+        // 1. Connection Status (ONLINE if log is within 30 minutes)
         $isOnline = false;
         if ($latestRecord['timestamp_parsed']) {
             $diffMinutes = Carbon::now()->diffInMinutes($latestRecord['timestamp_parsed']);
-            $isOnline = abs($diffMinutes) <= 3; // consider online if within 3 min
+            $isOnline = abs($diffMinutes) <= 30; // consider online if within 30 min
         }
 
         // 2. Uptime formatting: X Hari, Y Jam, Z Menit
