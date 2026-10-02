@@ -195,18 +195,12 @@ function SummaryCards({ latestRecord, logs = [] }) {
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
+        <div className="mt-4 grid grid-cols-2 gap-2 pt-3 border-t border-slate-100">
           <div>
             <div className="text-[11px] text-slate-500 font-medium truncate" title="Perubahan Wh dalam 10 menit terakhir">Δ Wh (10 Mnt)</div>
             <div className="text-xs lg:text-sm font-bold font-mono text-emerald-600 mt-0.5 flex items-center gap-0.5">
               <TrendingUp className="w-3 h-3 text-emerald-500 shrink-0" />
               <span>{stats10m.wh10mChangeFormatted}</span>
-            </div>
-          </div>
-          <div>
-            <div className="text-[11px] text-slate-500 font-medium truncate" title="Jumlah Wh di bawah total harian hari ini">Di Bawah Harian</div>
-            <div className="text-xs lg:text-sm font-bold font-mono text-amber-600 mt-0.5 truncate" title={`${stats10m.whBelowDailyFormatted} di bawah total harian`}>
-              {stats10m.whBelowDailyFormatted}
             </div>
           </div>
           <div>
