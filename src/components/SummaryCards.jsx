@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Sun, BatteryCharging, Zap, RotateCcw, SunDim } from 'lucide-react';
-import { calculateEnergyPeriods, calculateSunshinePeriods, formatEnergy, parseLoadStatus } from '../services/solarService';
+import { Sun, BatteryCharging, Zap, RotateCcw, SunDim, TrendingUp } from 'lucide-react';
+import { calculateEnergyPeriods, calculateSunshinePeriods, calculate10MinWhStats, formatEnergy, parseLoadStatus } from '../services/solarService';
 
 function getLuxCategory(lux) {
   const val = Number(lux || 0);
@@ -41,8 +41,9 @@ function SummaryCards({ latestRecord, logs = [] }) {
   const isCharging = p_bat >= 0;
   const luxCat = getLuxCategory(lux_val);
 
-  // Calculate Period Energies
+  // Calculate Period Energies & 10m Wh Stats
   const energyData = calculateEnergyPeriods(logs);
+  const stats10m = calculate10MinWhStats(logs);
 
   let currentWh = energyData.harianWh;
   let periodLabel = 'Reset 00:00';
@@ -113,7 +114,7 @@ function SummaryCards({ latestRecord, logs = [] }) {
         </div>
       </div>
 
-      {/* Card 2: BATERAI (BATTERY) METRICS */}
+      {/* Card 2: BATERAI (BATTERY) METRICS (Includes Normalisasi PV) */}
       <div className="white-card rounded-2xl p-5 relative overflow-hidden group hover:border-emerald-300 transition-all flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between">
@@ -132,19 +133,23 @@ function SummaryCards({ latestRecord, logs = [] }) {
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 pt-3 border-t border-slate-100">
+        <div className="mt-4 grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
           <div>
             <div className="text-[11px] text-slate-500 font-medium truncate">Tegangan (V_BAT)</div>
-            <div className="text-sm font-bold font-mono text-slate-800 mt-0.5">{v_bat} <span className="text-[10px] text-slate-400 font-normal">V</span></div>
+            <div className="text-xs lg:text-sm font-bold font-mono text-slate-800 mt-0.5">{v_bat} <span className="text-[10px] text-slate-400 font-normal">V</span></div>
           </div>
           <div>
             <div className="text-[11px] text-slate-500 font-medium truncate">Arus (I_BAT)</div>
-            <div className="text-sm font-bold font-mono text-slate-800 mt-0.5">{i_bat} <span className="text-[10px] text-slate-400 font-normal">A</span></div>
+            <div className="text-xs lg:text-sm font-bold font-mono text-slate-800 mt-0.5">{i_bat} <span className="text-[10px] text-slate-400 font-normal">A</span></div>
+          </div>
+          <div>
+            <div className="text-[11px] text-slate-500 font-medium truncate" title="Normalisasi PV / SCC Efficiency">Normalisasi PV</div>
+            <div className="text-xs lg:text-sm font-bold font-mono text-slate-800 mt-0.5">{pv_normalized}<span className="text-[10px] text-slate-400">%</span></div>
           </div>
         </div>
       </div>
 
-      {/* Card 3: ENERGY ACCUMULATION WITH PERIOD SELECTOR */}
+      {/* Card 3: ENERGY ACCUMULATION WITH 10-MIN WH CHANGE & DIFFERENCE BELOW DAILY */}
       <div className="white-card rounded-2xl p-5 relative overflow-hidden group hover:border-amber-300 transition-all flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between">
@@ -159,13 +164,15 @@ function SummaryCards({ latestRecord, logs = [] }) {
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-2">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-3xl lg:text-4xl font-extrabold font-mono text-slate-900 tracking-tight">{energyFormatted.value}</span>
-              <span className="text-sm lg:text-base font-bold text-amber-600">{energyFormatted.unit}</span>
+            <div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl lg:text-4xl font-extrabold font-mono text-slate-900 tracking-tight">{energyFormatted.value}</span>
+                <span className="text-sm lg:text-base font-bold text-amber-600">{energyFormatted.unit}</span>
+              </div>
             </div>
 
             {/* Period Selector Tabs */}
-            <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-[10px] font-semibold text-slate-600 shrink-0">
+            <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-[10px] font-semibold text-slate-600 shrink-0 self-start">
               <button
                 onClick={() => setPeriod('harian')}
                 className={`px-2 py-0.5 rounded-lg transition-all ${period === 'harian' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'hover:text-slate-900'}`}
@@ -188,20 +195,29 @@ function SummaryCards({ latestRecord, logs = [] }) {
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 pt-3 border-t border-slate-100">
+        <div className="mt-4 grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
           <div>
-            <div className="text-[11px] text-slate-500 font-medium truncate">Normalisasi PV</div>
-            <div className="text-sm font-bold font-mono text-slate-800 mt-0.5">{pv_normalized}<span className="text-[10px] text-slate-400">%</span></div>
+            <div className="text-[11px] text-slate-500 font-medium truncate" title="Perubahan Wh dalam 10 menit terakhir">Δ Wh (10 Mnt)</div>
+            <div className="text-xs lg:text-sm font-bold font-mono text-emerald-600 mt-0.5 flex items-center gap-0.5">
+              <TrendingUp className="w-3 h-3 text-emerald-500 shrink-0" />
+              <span>{stats10m.wh10mChangeFormatted}</span>
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] text-slate-500 font-medium truncate" title="Jumlah Wh di bawah total harian hari ini">Di Bawah Harian</div>
+            <div className="text-xs lg:text-sm font-bold font-mono text-amber-600 mt-0.5 truncate" title={`${stats10m.whBelowDailyFormatted} di bawah total harian`}>
+              {stats10m.whBelowDailyFormatted}
+            </div>
           </div>
           <div>
             <div className="text-[11px] text-slate-500 font-medium truncate">Dump Load Status</div>
             <div className="mt-0.5">
               {displayLoadStatus && displayLoadStatus !== 'OFF' ? (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 truncate inline-block">
                   DUMP: {displayLoadStatus}
                 </span>
               ) : (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 truncate inline-block">
                   DUMP: OFF
                 </span>
               )}

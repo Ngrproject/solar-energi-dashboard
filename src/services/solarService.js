@@ -675,6 +675,59 @@ export function calculateEnergyPeriods(logs) {
   };
 }
 
+/**
+ * Calculate 10-minute Wh energy change and comparison against daily total Wh
+ */
+export function calculate10MinWhStats(logs) {
+  if (!logs || logs.length === 0) {
+    return {
+      wh10mChange: 0,
+      wh10mChangeFormatted: '+0.00 Wh',
+      whBelowDaily: 0,
+      whBelowDailyFormatted: '0.00 Wh',
+      percentageOfDaily: '0.0%'
+    };
+  }
+
+  const sorted = [...logs].sort((a, b) => a.dateObj - b.dateObj);
+  const latestRecord = sorted[sorted.length - 1];
+  const latestWh = Number(latestRecord.wh_pv_daily || 0);
+
+  // Find record ~10 minutes ago
+  const latestTimeMs = latestRecord.dateObj.getTime();
+  const tenMinAgoMs = latestTimeMs - 10 * 60 * 1000;
+
+  let prevRecord = null;
+  for (let i = sorted.length - 2; i >= 0; i--) {
+    if (sorted[i].dateObj.getTime() <= tenMinAgoMs + 2 * 60 * 1000) {
+      prevRecord = sorted[i];
+      break;
+    }
+  }
+
+  if (!prevRecord && sorted.length >= 2) {
+    prevRecord = sorted[sorted.length - 2];
+  }
+
+  const prevWh = prevRecord ? Number(prevRecord.wh_pv_daily || 0) : 0;
+  let wh10mChange = latestWh - prevWh;
+  if (wh10mChange < 0 || isNaN(wh10mChange)) {
+    // Estimate from current power if log reset or gap occurred
+    wh10mChange = (Number(latestRecord.p_pv || 0) * 10) / 60;
+  }
+
+  const whBelowDaily = Math.max(0, latestWh - wh10mChange);
+  const percentageOfDaily = latestWh > 0 ? ((wh10mChange / latestWh) * 100).toFixed(1) + '%' : '0%';
+
+  return {
+    wh10mChange: parseFloat(wh10mChange.toFixed(2)),
+    wh10mChangeFormatted: `${wh10mChange >= 0 ? '+' : ''}${wh10mChange.toFixed(2)} Wh`,
+    whBelowDaily: parseFloat(whBelowDaily.toFixed(2)),
+    whBelowDailyFormatted: `-${whBelowDaily.toFixed(2)} Wh`,
+    percentageOfDaily
+  };
+}
+
 function getWeekNumber(d) {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
