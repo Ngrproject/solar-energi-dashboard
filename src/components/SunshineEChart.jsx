@@ -91,7 +91,7 @@ function SunshineEChart({ logs = [] }) {
   }, [chartData, barColor, gradientColor]);
 
   return (
-    <div className="white-card rounded-2xl p-6 lg:col-span-2">
+    <div className="white-card rounded-2xl p-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
         <div>
           <div className="flex items-center gap-2">

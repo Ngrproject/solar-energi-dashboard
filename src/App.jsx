@@ -9,6 +9,7 @@ import PowerEChart from './components/PowerEChart';
 import VoltageEChart from './components/VoltageEChart';
 import DailyWhEChart from './components/DailyWhEChart';
 import SunshineEChart from './components/SunshineEChart';
+import DeltaWh10mChart from './components/DeltaWh10mChart';
 import LuxComparisonChart from './components/LuxComparisonChart';
 import DataTable from './components/DataTable';
 
@@ -185,6 +186,7 @@ export default function App() {
             <PowerEChart logs={logs} />
             <VoltageEChart logs={logs} />
             <SunshineEChart logs={logs} />
+            <DeltaWh10mChart logs={logs} />
             <LuxComparisonChart logs={logs} />
             <DailyWhEChart logs={logs} />
           </section>
