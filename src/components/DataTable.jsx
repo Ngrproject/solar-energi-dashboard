@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Download, ChevronLeft, ChevronRight, Search, Filter, RefreshCw } from 'lucide-react';
+import { Download, ChevronLeft, ChevronRight, Search, Filter, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { exportToCsv } from '../utils/csvExporter';
 import { formatEnergy, parseLoadStatus } from '../services/solarService';
 
@@ -7,11 +7,33 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortColumn, setSortColumn] = useState('timestamp');
+  const [sortOrder, setSortOrder] = useState('desc');
 
-  // Filter logs by selected date range and search term
+  const columns = [
+    { key: 'timestamp', label: 'Timestamp' },
+    { key: 'v_pv', label: 'V_PV (V)' },
+    { key: 'i_pv', label: 'I_PV (A)' },
+    { key: 'p_pv', label: 'P_PV (W)', className: 'text-blue-600' },
+    { key: 'wh_pv_daily', label: 'WH_DAILY', className: 'text-amber-600' },
+    { key: 'lux_val', label: 'LUX (lx)', className: 'text-amber-500' },
+    { key: 'sunshine_hours_daily', label: 'SUNSHINE_JAM', className: 'text-orange-600' },
+    { key: 'v_bat', label: 'V_BAT (V)' },
+    { key: 'i_bat', label: 'I_BAT (A)' },
+    { key: 'p_bat', label: 'P_BAT (W)', className: 'text-emerald-600' },
+    { key: 'pv_normalized', label: 'PV_NORMALIZED' },
+    { key: 'dump_load_pwm', label: 'DUMP_LOAD_PWM' },
+    { key: 'uptime_sec', label: 'UPTIME_SEC' },
+    { key: 'esp_temp', label: 'ESP_TEMP (°C)' },
+    { key: 'free_heap', label: 'FREE_HEAP' },
+    { key: 'wifi_rssi', label: 'WIFI_RSSI (dBm)', className: 'text-indigo-600' },
+    { key: 'sd_status', label: 'SD_STATUS' },
+  ];
+
+  // Filter and sort logs
   const filteredLogs = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return logs.filter(item => {
+    const filtered = logs.filter(item => {
       const dateStr = item.wibDateStr || (item.dateObj ? item.dateObj.toISOString().substring(0, 10) : item.timestamp.substring(0, 10));
       const afterFrom = dateFrom ? dateStr >= dateFrom : true;
       const beforeTo = dateTo ? dateStr <= dateTo : true;
@@ -23,21 +45,57 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
         String(logVal(item.lux_val)).includes(term) ||
         String(logVal(item.pv_normalized)).includes(term) ||
         String(logVal(item.sunshine_hours_daily)).includes(term) ||
+        String(logVal(item.wifi_rssi)).includes(term) ||
         String(item.load_status).toLowerCase().includes(term) ||
         String(item.sd_status).toLowerCase().includes(term);
 
       return afterFrom && beforeTo && matchesSearch;
-    }).sort((a, b) => (b.dateObj || 0) - (a.dateObj || 0));
-  }, [logs, dateFrom, dateTo, searchTerm]);
+    });
+
+    return filtered.sort((a, b) => {
+      let valA, valB;
+
+      if (sortColumn === 'timestamp' || sortColumn === 'dateObj') {
+        valA = a.dateObj ? a.dateObj.getTime() : 0;
+        valB = b.dateObj ? b.dateObj.getTime() : 0;
+      } else if (sortColumn === 'wh_daily' || sortColumn === 'wh_pv_daily') {
+        valA = Number(a.wh_pv_daily || 0);
+        valB = Number(b.wh_pv_daily || 0);
+      } else if (sortColumn === 'load_status' || sortColumn === 'dump_load_pwm') {
+        valA = Number(a.dump_load_pwm || 0);
+        valB = Number(b.dump_load_pwm || 0);
+      } else if (typeof a[sortColumn] === 'string') {
+        valA = (a[sortColumn] || '').toLowerCase();
+        valB = (b[sortColumn] || '').toLowerCase();
+      } else {
+        valA = Number(a[sortColumn] ?? 0);
+        valB = Number(b[sortColumn] ?? 0);
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [logs, dateFrom, dateTo, searchTerm, sortColumn, sortOrder]);
 
   function logVal(val) {
     return val !== undefined && val !== null ? val : '';
   }
 
-  // Reset pagination on filter, search, or itemsPerPage change
+  // Handle column header click for sorting
+  const handleSort = (columnKey) => {
+    if (sortColumn === columnKey) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(columnKey);
+      setSortOrder('desc');
+    }
+  };
+
+  // Reset pagination on filter, search, sort, or itemsPerPage change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [dateFrom, dateTo, searchTerm, itemsPerPage]);
+  }, [dateFrom, dateTo, searchTerm, itemsPerPage, sortColumn, sortOrder]);
 
   const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1;
   const paginatedLogs = useMemo(() => {
@@ -54,7 +112,11 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
     setDateTo('');
     setSearchTerm('');
     setItemsPerPage(15);
+    setSortColumn('timestamp');
+    setSortOrder('desc');
   };
+
+  const isFilteredOrSorted = dateFrom || dateTo || searchTerm || itemsPerPage !== 15 || sortColumn !== 'timestamp' || sortOrder !== 'desc';
 
   return (
     <section className="mt-6">
@@ -72,18 +134,18 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Data riwayat pengukuran lengkap dari sensor PV, Cahaya (Lux), Lama Penyinaran (Sunshine), Baterai, dan status ESP32 Micro SD.
+              Data riwayat pengukuran lengkap dari sensor PV, Cahaya (Lux), Lama Penyinaran (Sunshine), Baterai, Wi-Fi RSSI, dan status ESP32 Micro SD. Klik judul kolom untuk mengurutkan data.
             </p>
           </div>
 
-          {/* Controls: Search, Date Filters, Export */}
+          {/* Controls: Search, Date Filters, Sort, Export */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Search input */}
             <div className="relative flex items-center bg-slate-50 rounded-xl border border-slate-200 px-3 py-1.5 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
               <Search className="w-3.5 h-3.5 text-slate-400 mr-2" />
               <input
                 type="text"
-                placeholder="Cari timestamp, status, lux, sunshine..."
+                placeholder="Cari timestamp, status, lux, rssi..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none w-36 sm:w-44 font-medium"
@@ -112,12 +174,44 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
               />
             </div>
 
+            {/* Sort Control Dropdown & Direction Toggle */}
+            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 text-xs">
+              <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+              <label className="text-slate-500 font-semibold">Urutkan:</label>
+              <select
+                value={sortColumn}
+                onChange={e => setSortColumn(e.target.value)}
+                className="bg-transparent text-xs text-blue-700 font-bold focus:outline-none cursor-pointer"
+              >
+                {columns.map(col => (
+                  <option key={col.key} value={col.key}>
+                    {col.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+                className="ml-1 px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-blue-600 hover:bg-blue-50 font-bold flex items-center gap-1 text-[11px] shadow-sm transition-colors"
+                title={sortOrder === 'asc' ? 'Urutan Naik (A-Z / 0-9)' : 'Urutan Turun (Z-A / 9-0)'}
+              >
+                {sortOrder === 'asc' ? (
+                  <>
+                    <ArrowUp className="w-3 h-3 text-blue-600" /> ASC
+                  </>
+                ) : (
+                  <>
+                    <ArrowDown className="w-3 h-3 text-blue-600" /> DESC
+                  </>
+                )}
+              </button>
+            </div>
+
             {/* Reset */}
-            {(dateFrom || dateTo || searchTerm || itemsPerPage !== 15) && (
+            {isFilteredOrSorted && (
               <button
                 onClick={handleResetFilters}
                 className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold transition-colors border border-slate-200 flex items-center gap-1"
-                title="Reset Filter & Pencarian"
+                title="Reset Filter & Pengurutan"
               >
                 <RefreshCw className="w-3 h-3 text-slate-500" />
                 Reset
@@ -141,22 +235,27 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
               <tr>
-                <th className="p-3.5">Timestamp</th>
-                <th className="p-3.5">V_PV (V)</th>
-                <th className="p-3.5">I_PV (A)</th>
-                <th className="p-3.5 text-blue-600">P_PV (W)</th>
-                <th className="p-3.5 text-amber-600">WH_DAILY</th>
-                <th className="p-3.5 text-amber-500">LUX (lx)</th>
-                <th className="p-3.5 text-orange-600">SUNSHINE_JAM</th>
-                <th className="p-3.5">V_BAT (V)</th>
-                <th className="p-3.5">I_BAT (A)</th>
-                <th className="p-3.5 text-emerald-600">P_BAT (W)</th>
-                <th className="p-3.5">PV_NORMALIZED</th>
-                <th className="p-3.5">DUMP_LOAD_PWM</th>
-                <th className="p-3.5">UPTIME_SEC</th>
-                <th className="p-3.5">ESP_TEMP (°C)</th>
-                <th className="p-3.5">FREE_HEAP</th>
-                <th className="p-3.5">SD_STATUS</th>
+                {columns.map(col => (
+                  <th
+                    key={col.key}
+                    onClick={() => handleSort(col.key)}
+                    className={`p-3.5 cursor-pointer select-none hover:bg-slate-100 transition-colors whitespace-nowrap ${col.className || ''}`}
+                    title={`Urutkan berdasarkan ${col.label}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>{col.label}</span>
+                      {sortColumn === col.key ? (
+                        sortOrder === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-blue-600" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-blue-600" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 text-slate-300 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono text-slate-700">
@@ -188,6 +287,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                     <td className="p-3.5 text-slate-500">{log.uptime_sec}</td>
                     <td className="p-3.5 text-amber-600 font-semibold">{log.esp_temp}</td>
                     <td className="p-3.5 text-slate-500">{Number(log.free_heap || 0).toLocaleString('id-ID')}</td>
+                    <td className="p-3.5 text-indigo-600 font-semibold">{log.wifi_rssi ?? -65} dBm</td>
                     <td className="p-3.5 font-sans">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                         log.sd_status === 'ERROR' || log.sd_status === 'FAIL' 
@@ -201,11 +301,11 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={16} className="p-12 text-center text-slate-400 font-sans">
+                  <td colSpan={17} className="p-12 text-center text-slate-400 font-sans">
                     <div className="max-w-xs mx-auto text-center">
                       <Filter className="w-8 h-8 mx-auto text-slate-300 mb-2" />
                       <p className="font-semibold text-slate-600">Tidak Ada Data Ditemukan</p>
-                      <p className="text-xs text-slate-400 mt-1">Coba sesuaikan kata kunci pencarian atau rentang tanggal filter.</p>
+                      <p className="text-xs text-slate-400 mt-1">Coba sesuaikan kata kunci pencarian, pengurutan, atau rentang tanggal filter.</p>
                     </div>
                   </td>
                 </tr>
@@ -260,4 +360,5 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
 }
 
 export default React.memo(DataTable);
+
 

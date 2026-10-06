@@ -41,6 +41,7 @@ export function exportToCsv(logs, dateFrom, dateTo) {
     'UPTIME_SEC',
     'ESP_TEMP',
     'FREE_HEAP',
+    'WIFI_RSSI',
     'SD_STATUS'
   ];
 
@@ -72,6 +73,7 @@ export function exportToCsv(logs, dateFrom, dateTo) {
       parseInt(row.uptime_sec || 0, 10),
       Number(row.esp_temp || 0).toFixed(1),
       parseInt(row.free_heap || 0, 10),
+      parseInt(row.wifi_rssi ?? -65, 10),
       row.sd_status || 'OK'
     ];
     csvRows.push(line.join(','));
