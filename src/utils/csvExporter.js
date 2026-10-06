@@ -1,3 +1,5 @@
+import * as XLSX from 'xlsx';
+
 /**
  * Exports solar log data to a CSV file identical to ESP32 SD Card format.
  * @param {Array} logs - Array of solar log entries
@@ -107,13 +109,13 @@ export function exportToCsv(logs, dateFrom, dateTo, timeZoneMode = 'WIB') {
 }
 
 /**
- * Exports solar log data to an Excel (.xls) spreadsheet file.
+ * Exports solar log data to a native Excel (.xlsx) spreadsheet file.
  * @param {Array} logs - Array of solar log entries
  * @param {string} dateFrom - Start date filter (YYYY-MM-DD)
  * @param {string} dateTo - End date filter (YYYY-MM-DD)
  * @param {string} timeZoneMode - Timezone format: 'WIB' or 'UTC' (default 'WIB')
  */
-export function exportToXls(logs, dateFrom, dateTo, timeZoneMode = 'WIB') {
+export function exportToXlsx(logs, dateFrom, dateTo, timeZoneMode = 'WIB') {
   if (!logs || logs.length === 0) {
     alert("Tidak ada data untuk di-export.");
     return;
@@ -137,57 +139,8 @@ export function exportToXls(logs, dateFrom, dateTo, timeZoneMode = 'WIB') {
 
   const isUtc = String(timeZoneMode).toUpperCase() === 'UTC';
 
-  let tableHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta charset="utf-8" />
-<!--[if gte mso 9]>
-<xml>
- <x:ExcelWorkbook>
-  <x:ExcelWorksheets>
-   <x:ExcelWorksheet>
-    <x:Name>Solar Energy Logs</x:Name>
-    <x:WorksheetOptions>
-     <x:DisplayGridlines/>
-    </x:WorksheetOptions>
-   </x:ExcelWorksheet>
-  </x:ExcelWorksheets>
- </x:ExcelWorkbook>
-</xml>
-<![endif]-->
-<style>
-  th { background-color: #2563eb; color: #ffffff; font-weight: bold; text-align: center; padding: 8px; font-family: Arial, sans-serif; font-size: 11px; }
-  td { border: 1px solid #cbd5e1; padding: 6px; font-family: Arial, sans-serif; font-size: 11px; text-align: right; }
-  .text-left { text-align: left; }
-  .text-center { text-align: center; }
-  .txt { mso-number-format:"\@"; }
-</style>
-</head>
-<body>
-<table>
-<thead>
-  <tr>
-    <th>TIMESTAMP</th>
-    <th>V_PV (V)</th>
-    <th>I_PV (A)</th>
-    <th>P_PV (W)</th>
-    <th>WH_DAILY</th>
-    <th>LUX (lx)</th>
-    <th>SUNSHINE_JAM</th>
-    <th>V_BAT (V)</th>
-    <th>I_BAT (A)</th>
-    <th>P_BAT (W)</th>
-    <th>PV_NORMALIZED</th>
-    <th>DUMP_LOAD_PWM</th>
-    <th>UPTIME_SEC</th>
-    <th>ESP_TEMP (°C)</th>
-    <th>FREE_HEAP</th>
-    <th>WIFI_RSSI (dBm)</th>
-    <th>SD_STATUS</th>
-  </tr>
-</thead>
-<tbody>`;
-
-  filtered.forEach(row => {
+  // Format array of objects for XLSX worksheet conversion
+  const sheetData = filtered.map(row => {
     let pwmVal = 0;
     if (typeof row.dump_load_pwm === 'number') {
       pwmVal = row.dump_load_pwm;
@@ -200,46 +153,56 @@ export function exportToXls(logs, dateFrom, dateTo, timeZoneMode = 'WIB') {
       ? (row.timestampUtc || row.rawTimestamp || row.timestamp)
       : (row.timestamp || row.timestampUtc);
 
-    tableHtml += `
-  <tr>
-    <td class="txt text-center">${timestampVal || ''}</td>
-    <td>${Number(row.v_pv || 0).toFixed(2)}</td>
-    <td>${Number(row.i_pv || 0).toFixed(2)}</td>
-    <td>${Number(row.p_pv || 0).toFixed(2)}</td>
-    <td>${Number(row.wh_pv_daily || 0).toFixed(2)}</td>
-    <td>${Math.round(Number(row.lux_val || 0))}</td>
-    <td>${Number(row.sunshine_hours_daily || 0).toFixed(2)}</td>
-    <td>${Number(row.v_bat || 0).toFixed(2)}</td>
-    <td>${Number(row.i_bat || 0).toFixed(2)}</td>
-    <td>${Number(row.p_bat || 0).toFixed(2)}</td>
-    <td>${Number(row.pv_normalized ?? row.scc_eff ?? 0).toFixed(1)}</td>
-    <td class="text-center">${pwmVal}</td>
-    <td class="text-center">${parseInt(row.uptime_sec || 0, 10)}</td>
-    <td>${Number(row.esp_temp || 0).toFixed(1)}</td>
-    <td>${parseInt(row.free_heap || 0, 10)}</td>
-    <td class="text-center">${parseInt(row.wifi_rssi ?? -65, 10)}</td>
-    <td class="text-center">${row.sd_status || 'OK'}</td>
-  </tr>`;
+    return {
+      'TIMESTAMP': timestampVal || '',
+      'V_PV (V)': Number(Number(row.v_pv || 0).toFixed(2)),
+      'I_PV (A)': Number(Number(row.i_pv || 0).toFixed(2)),
+      'P_PV (W)': Number(Number(row.p_pv || 0).toFixed(2)),
+      'WH_DAILY': Number(Number(row.wh_pv_daily || 0).toFixed(2)),
+      'LUX (lx)': Math.round(Number(row.lux_val || 0)),
+      'SUNSHINE_JAM': Number(Number(row.sunshine_hours_daily || 0).toFixed(2)),
+      'V_BAT (V)': Number(Number(row.v_bat || 0).toFixed(2)),
+      'I_BAT (A)': Number(Number(row.i_bat || 0).toFixed(2)),
+      'P_BAT (W)': Number(Number(row.p_bat || 0).toFixed(2)),
+      'PV_NORMALIZED': Number(Number(row.pv_normalized ?? row.scc_eff ?? 0).toFixed(1)),
+      'DUMP_LOAD_PWM': pwmVal,
+      'UPTIME_SEC': parseInt(row.uptime_sec || 0, 10),
+      'ESP_TEMP (°C)': Number(Number(row.esp_temp || 0).toFixed(1)),
+      'FREE_HEAP': parseInt(row.free_heap || 0, 10),
+      'WIFI_RSSI (dBm)': parseInt(row.wifi_rssi ?? -65, 10),
+      'SD_STATUS': row.sd_status || 'OK'
+    };
   });
 
-  tableHtml += `
-</tbody>
-</table>
-</body>
-</html>`;
+  const worksheet = XLSX.utils.json_to_sheet(sheetData);
 
-  const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  
+  // Set explicit column widths for neat rendering
+  worksheet['!cols'] = [
+    { wch: 20 }, // TIMESTAMP
+    { wch: 10 }, // V_PV
+    { wch: 10 }, // I_PV
+    { wch: 10 }, // P_PV
+    { wch: 12 }, // WH_DAILY
+    { wch: 12 }, // LUX
+    { wch: 15 }, // SUNSHINE_JAM
+    { wch: 10 }, // V_BAT
+    { wch: 10 }, // I_BAT
+    { wch: 10 }, // P_BAT
+    { wch: 15 }, // PV_NORMALIZED
+    { wch: 16 }, // DUMP_LOAD_PWM
+    { wch: 12 }, // UPTIME_SEC
+    { wch: 14 }, // ESP_TEMP
+    { wch: 12 }, // FREE_HEAP
+    { wch: 16 }, // WIFI_RSSI
+    { wch: 12 }  // SD_STATUS
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Solar Energy Logs');
+
   const tzSuffix = isUtc ? 'UTC' : 'WIB';
   const dateSuffix = `${dateFrom || 'all'}_to_${dateTo || 'now'}`;
-  const fileName = `solar_log_${tzSuffix}_${dateSuffix}_${new Date().toISOString().replace(/[:.]/g, '-')}.xls`;
-  
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', fileName);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  const fileName = `solar_log_${tzSuffix}_${dateSuffix}_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`;
+
+  XLSX.writeFile(workbook, fileName);
 }

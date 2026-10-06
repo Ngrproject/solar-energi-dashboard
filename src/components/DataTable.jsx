@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Download, ChevronLeft, ChevronRight, Search, Filter, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, FileText, FileSpreadsheet } from 'lucide-react';
-import { exportToCsv, exportToXls } from '../utils/csvExporter';
+import { exportToCsv, exportToXlsx } from '../utils/csvExporter';
 import { formatEnergy, parseLoadStatus } from '../services/solarService';
 
 function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
@@ -117,8 +117,8 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
   }, [filteredLogs, currentPage, itemsPerPage]);
 
   const handleExport = (format = 'csv', timeZoneMode = 'WIB') => {
-    if (format === 'xls') {
-      exportToXls(logs, dateFrom, dateTo, timeZoneMode);
+    if (format === 'xlsx') {
+      exportToXlsx(logs, dateFrom, dateTo, timeZoneMode);
     } else {
       exportToCsv(logs, dateFrom, dateTo, timeZoneMode);
     }
@@ -236,12 +236,12 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
               </button>
             )}
 
-            {/* Export CSV / Excel (XLS) Button with Dropdown Menu */}
+            {/* Export CSV / Excel (XLSX) Button with Dropdown Menu */}
             <div className="relative" ref={exportMenuRef}>
               <button
                 onClick={() => setShowExportMenu(prev => !prev)}
                 className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors flex items-center gap-2 shadow-md shadow-emerald-600/20"
-                title="Download Log Data (CSV / Excel)"
+                title="Download Log Data (CSV / Excel XLSX)"
               >
                 <Download className="w-4 h-4" />
                 <span>Export Data</span>
@@ -282,18 +282,18 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                     </span>
                   </button>
 
-                  {/* Excel XLS Section */}
+                  {/* Excel XLSX Section */}
                   <div className="px-3.5 py-1 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 bg-slate-50 border-y border-slate-100">
                     <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
-                    Format Excel (.xls)
+                    Format Excel (.xlsx)
                   </div>
 
                   <button
-                    onClick={() => handleExport('xls', 'WIB')}
+                    onClick={() => handleExport('xlsx', 'WIB')}
                     className="w-full px-3.5 py-2 text-left hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 flex items-center justify-between font-semibold transition-colors"
                   >
                     <div className="flex flex-col">
-                      <span className="font-bold text-slate-900">Excel XLS (WIB / UTC+7)</span>
+                      <span className="font-bold text-slate-900">Excel XLSX (WIB / UTC+7)</span>
                       <span className="text-[10px] text-slate-500 font-normal">Tabel Rapi Spreadsheet WIB</span>
                     </div>
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -302,11 +302,11 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
                   </button>
 
                   <button
-                    onClick={() => handleExport('xls', 'UTC')}
+                    onClick={() => handleExport('xlsx', 'UTC')}
                     className="w-full px-3.5 py-2 text-left hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 flex items-center justify-between font-semibold transition-colors border-t border-slate-100/60"
                   >
                     <div className="flex flex-col">
-                      <span className="font-bold text-slate-900">Excel XLS (UTC / GMT+0)</span>
+                      <span className="font-bold text-slate-900">Excel XLSX (UTC / GMT+0)</span>
                       <span className="text-[10px] text-slate-500 font-normal">Tabel Rapi Spreadsheet UTC</span>
                     </div>
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
