@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { Download, ChevronLeft, ChevronRight, Search, Filter, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
-import { exportToCsv } from '../utils/csvExporter';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Download, ChevronLeft, ChevronRight, Search, Filter, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, FileText, FileSpreadsheet } from 'lucide-react';
+import { exportToCsv, exportToXls } from '../utils/csvExporter';
 import { formatEnergy, parseLoadStatus } from '../services/solarService';
 
 function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
@@ -9,6 +9,19 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortColumn, setSortColumn] = useState('timestamp');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef(null);
+
+  // Close export dropdown menu on click outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target)) {
+        setShowExportMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const columns = [
     { key: 'timestamp', label: 'Timestamp' },
@@ -93,7 +106,7 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
   };
 
   // Reset pagination on filter, search, sort, or itemsPerPage change
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [dateFrom, dateTo, searchTerm, itemsPerPage, sortColumn, sortOrder]);
 
@@ -103,8 +116,13 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
     return filteredLogs.slice(start, start + itemsPerPage);
   }, [filteredLogs, currentPage, itemsPerPage]);
 
-  const handleExport = () => {
-    exportToCsv(logs, dateFrom, dateTo);
+  const handleExport = (format = 'csv', timeZoneMode = 'WIB') => {
+    if (format === 'xls') {
+      exportToXls(logs, dateFrom, dateTo, timeZoneMode);
+    } else {
+      exportToCsv(logs, dateFrom, dateTo, timeZoneMode);
+    }
+    setShowExportMenu(false);
   };
 
   const handleResetFilters = () => {
@@ -218,15 +236,86 @@ function DataTable({ logs = [], dateFrom, setDateFrom, dateTo, setDateTo }) {
               </button>
             )}
 
-            {/* Export CSV Button */}
-            <button
-              onClick={handleExport}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors flex items-center gap-2 shadow-md shadow-emerald-600/20"
-              title="Download CSV Log SD Card"
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </button>
+            {/* Export CSV / Excel (XLS) Button with Dropdown Menu */}
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                onClick={() => setShowExportMenu(prev => !prev)}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors flex items-center gap-2 shadow-md shadow-emerald-600/20"
+                title="Download Log Data (CSV / Excel)"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Data</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showExportMenu ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showExportMenu && (
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
+                  {/* CSV Section */}
+                  <div className="px-3.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 bg-slate-50 border-y border-slate-100">
+                    <FileText className="w-3 h-3 text-emerald-600" />
+                    Format CSV (.csv)
+                  </div>
+
+                  <button
+                    onClick={() => handleExport('csv', 'WIB')}
+                    className="w-full px-3.5 py-2 text-left hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 flex items-center justify-between font-semibold transition-colors"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-900">CSV (WIB / UTC+7)</span>
+                      <span className="text-[10px] text-slate-500 font-normal">Waktu Indonesia Barat</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                      WIB
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => handleExport('csv', 'UTC')}
+                    className="w-full px-3.5 py-2 text-left hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 flex items-center justify-between font-semibold transition-colors border-t border-slate-100/60"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-900">CSV (UTC / GMT+0)</span>
+                      <span className="text-[10px] text-slate-500 font-normal">Waktu Standar ESP32</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      UTC
+                    </span>
+                  </button>
+
+                  {/* Excel XLS Section */}
+                  <div className="px-3.5 py-1 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 bg-slate-50 border-y border-slate-100">
+                    <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
+                    Format Excel (.xls)
+                  </div>
+
+                  <button
+                    onClick={() => handleExport('xls', 'WIB')}
+                    className="w-full px-3.5 py-2 text-left hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 flex items-center justify-between font-semibold transition-colors"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-900">Excel XLS (WIB / UTC+7)</span>
+                      <span className="text-[10px] text-slate-500 font-normal">Tabel Rapi Spreadsheet WIB</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      WIB
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => handleExport('xls', 'UTC')}
+                    className="w-full px-3.5 py-2 text-left hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 flex items-center justify-between font-semibold transition-colors border-t border-slate-100/60"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-900">Excel XLS (UTC / GMT+0)</span>
+                      <span className="text-[10px] text-slate-500 font-normal">Tabel Rapi Spreadsheet UTC</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      UTC
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
