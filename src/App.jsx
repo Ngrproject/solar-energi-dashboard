@@ -11,6 +11,7 @@ import DailyWhEChart from './components/DailyWhEChart';
 import SunshineEChart from './components/SunshineEChart';
 import DeltaWh10mChart from './components/DeltaWh10mChart';
 import LuxComparisonChart from './components/LuxComparisonChart';
+import PanelEstimationChart from './components/PanelEstimationChart';
 import DataTable from './components/DataTable';
 
 export default function App() {
@@ -188,6 +189,7 @@ export default function App() {
             <SunshineEChart logs={logs} />
             <DeltaWh10mChart logs={logs} />
             <LuxComparisonChart logs={logs} />
+            <PanelEstimationChart logs={logs} />
             <DailyWhEChart logs={logs} />
           </section>
         </main>
