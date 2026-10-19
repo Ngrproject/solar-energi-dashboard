@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RefreshCw, CheckCircle2, AlertTriangle, BellRing, Layers, LayoutDashboard, Database } from 'lucide-react';
-import { fetchSolarLogs, calculateDiagnostics, getAvailableSheetOptions } from './services/solarService';
+import { fetchSolarLogs, calculateDiagnostics, getAvailableSheetOptions, getAvailableDates, getLatestDate } from './services/solarService';
 import logoImg from './assets/logo.png';
 import RealTimeClock from './components/RealTimeClock';
 import DiagnosticPanel from './components/DiagnosticPanel';
@@ -25,16 +25,35 @@ export default function App() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [newDataNotice, setNewDataNotice] = useState(false);
 
+  // Selected date for daily inspection (Mode Harian)
+  const [selectedDailyDate, setSelectedDailyDate] = useState('');
+
+  // Date range filters for Data Energi (Page 2)
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
   const prevLastTimestamp = useRef(null);
   const sheetOptions = useMemo(() => getAvailableSheetOptions(), []);
 
+  // Compute available dates and min/max for daily inspection
+  const availableDates = useMemo(() => getAvailableDates(logs), [logs]);
+  const latestDateStr = useMemo(() => getLatestDate(logs), [logs]);
+  const minDate = availableDates[0] || '';
+  const maxDate = availableDates[availableDates.length - 1] || '';
+
+  // Synchronize daily date to latest date when logs are loaded or sheet changes
+  useEffect(() => {
+    if (latestDateStr) {
+      if (!selectedDailyDate || !availableDates.includes(selectedDailyDate)) {
+        setSelectedDailyDate(latestDateStr);
+      }
+    }
+  }, [latestDateStr, availableDates]);
+
   const loadData = async (isSilent = false, sheetToFetch = selectedSheet) => {
     if (!isSilent) setLoading(true);
     const result = await fetchSolarLogs(sheetToFetch);
-    
+
     if (result.logs.length > 0) {
       const latestTs = result.logs[result.logs.length - 1].timestamp;
       if (prevLastTimestamp.current && prevLastTimestamp.current !== latestTs) {
@@ -79,7 +98,7 @@ export default function App() {
           </div>
         </div>
       )}
-      
+
       {/* HEADER BAR */}
       <header className="flex flex-col lg:flex-row lg:items-center justify-between pb-6 border-b border-slate-200 gap-4">
         <div className="flex items-center gap-3.5">
@@ -96,7 +115,7 @@ export default function App() {
 
         {/* Header Action Controls & Real-Time Clocks Widget */}
         <div className="flex flex-wrap items-center gap-3 self-start lg:self-auto">
-          
+
           {/* REAL-TIME WIB & UTC CLOCKS WIDGET */}
           <RealTimeClock />
 
@@ -146,11 +165,10 @@ export default function App() {
       <nav className="flex items-center gap-2 my-6 bg-slate-200/60 p-1.5 rounded-2xl max-w-md shadow-inner border border-slate-200/80">
         <button
           onClick={() => setActiveTab('dashboard')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${
-            activeTab === 'dashboard'
+          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'dashboard'
               ? 'bg-white text-blue-600 shadow-md shadow-slate-200/80 scale-[1.02]'
               : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-          }`}
+            }`}
         >
           <LayoutDashboard className={`w-4 h-4 ${activeTab === 'dashboard' ? 'text-blue-600' : 'text-slate-400'}`} />
           <span>Dashboard</span>
@@ -158,11 +176,10 @@ export default function App() {
 
         <button
           onClick={() => setActiveTab('data')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${
-            activeTab === 'data'
+          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'data'
               ? 'bg-white text-blue-600 shadow-md shadow-slate-200/80 scale-[1.02]'
               : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-          }`}
+            }`}
         >
           <Database className={`w-4 h-4 ${activeTab === 'data' ? 'text-blue-600' : 'text-slate-400'}`} />
           <span>Data Energi</span>
@@ -180,17 +197,64 @@ export default function App() {
           <DiagnosticPanel diagnostics={diagnostics} />
 
           {/* REAL-TIME METRIC CARDS */}
-          <SummaryCards latestRecord={latestRecord} logs={logs} />
+          <SummaryCards
+            latestRecord={latestRecord}
+            logs={logs}
+            selectedDate={selectedDailyDate}
+            onDateChange={setSelectedDailyDate}
+          />
 
           {/* INTERACTIVE ECHARTS SECTION */}
           <section className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PowerEChart logs={logs} />
-            <VoltageEChart logs={logs} />
-            <SunshineEChart logs={logs} />
-            <DeltaWh10mChart logs={logs} />
-            <LuxComparisonChart logs={logs} />
-            <PanelEstimationChart logs={logs} />
-            <DailyWhEChart logs={logs} />
+            <PowerEChart
+              logs={logs}
+              selectedDate={selectedDailyDate}
+              onDateChange={setSelectedDailyDate}
+              minDate={minDate}
+              maxDate={maxDate}
+            />
+            <VoltageEChart
+              logs={logs}
+              selectedDate={selectedDailyDate}
+              onDateChange={setSelectedDailyDate}
+              minDate={minDate}
+              maxDate={maxDate}
+            />
+            <SunshineEChart
+              logs={logs}
+              selectedDate={selectedDailyDate}
+              onDateChange={setSelectedDailyDate}
+              minDate={minDate}
+              maxDate={maxDate}
+            />
+            <DeltaWh10mChart
+              logs={logs}
+              selectedDate={selectedDailyDate}
+              onDateChange={setSelectedDailyDate}
+              minDate={minDate}
+              maxDate={maxDate}
+            />
+            <LuxComparisonChart
+              logs={logs}
+              selectedDate={selectedDailyDate}
+              onDateChange={setSelectedDailyDate}
+              minDate={minDate}
+              maxDate={maxDate}
+            />
+            <PanelEstimationChart
+              logs={logs}
+              selectedDate={selectedDailyDate}
+              onDateChange={setSelectedDailyDate}
+              minDate={minDate}
+              maxDate={maxDate}
+            />
+            <DailyWhEChart
+              logs={logs}
+              selectedDate={selectedDailyDate}
+              onDateChange={setSelectedDailyDate}
+              minDate={minDate}
+              maxDate={maxDate}
+            />
           </section>
         </main>
       ) : (

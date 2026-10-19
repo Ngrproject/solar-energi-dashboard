@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Sun, BatteryCharging, Zap, RotateCcw, SunDim, TrendingUp } from 'lucide-react';
 import { calculateEnergyPeriods, calculateSunshinePeriods, calculate10MinWhStats, formatEnergy, parseLoadStatus } from '../services/solarService';
 
@@ -19,9 +19,22 @@ function getSunshineCategory(hours) {
   return { label: 'Rendah / Hujan', color: 'bg-slate-100 text-slate-700 border-slate-300' };
 }
 
-function SummaryCards({ latestRecord, logs = [] }) {
+function SummaryCards({ latestRecord, logs = [], selectedDate, onDateChange }) {
   const [period, setPeriod] = useState('harian'); // 'harian' | 'mingguan' | 'bulanan'
   const [sunshinePeriod, setSunshinePeriod] = useState('harian'); // 'harian' | 'mingguan' | 'bulanan'
+
+  const latestDateStr = latestRecord?.wibDateStr || (latestRecord?.timestamp ? latestRecord.timestamp.substring(0, 10) : '');
+  const isHistorical = Boolean(selectedDate && latestDateStr && selectedDate !== latestDateStr);
+
+  // If viewing a historical day, find the peak generation record on that day for Card 1 & Card 2
+  const historicalRecord = useMemo(() => {
+    if (!isHistorical || !logs || logs.length === 0) return null;
+    const dayLogs = logs.filter(l => l.wibDateStr === selectedDate);
+    if (dayLogs.length === 0) return null;
+    return dayLogs.reduce((max, r) => (r.p_pv > max.p_pv ? r : max), dayLogs[0]);
+  }, [isHistorical, logs, selectedDate]);
+
+  const activeRecord = (isHistorical && historicalRecord) ? historicalRecord : (latestRecord || {});
 
   const {
     v_pv = 0,
@@ -30,23 +43,23 @@ function SummaryCards({ latestRecord, logs = [] }) {
     v_bat = 0,
     i_bat = 0,
     p_bat = 0,
-    pv_normalized = latestRecord?.scc_eff ?? 0,
+    pv_normalized = activeRecord?.scc_eff ?? 0,
     scc_eff = 0,
     load_status = 'OFF',
     lux_val = 0,
     sunshine_hours_daily = 0,
-  } = latestRecord || {};
+  } = activeRecord || {};
 
   const displayLoadStatus = parseLoadStatus(load_status);
   const isCharging = p_bat >= 0;
   const luxCat = getLuxCategory(lux_val);
 
   // Calculate Period Energies & 10m Wh Stats
-  const energyData = calculateEnergyPeriods(logs);
-  const stats10m = calculate10MinWhStats(logs);
+  const energyData = calculateEnergyPeriods(logs, selectedDate);
+  const stats10m = calculate10MinWhStats(logs, selectedDate);
 
   let currentWh = energyData.harianWh;
-  let periodLabel = 'Reset 00:00';
+  let periodLabel = isHistorical ? selectedDate : 'Reset 00:00';
   let periodTitle = 'Energi Harian';
 
   if (period === 'mingguan') {
@@ -62,9 +75,9 @@ function SummaryCards({ latestRecord, logs = [] }) {
   const energyFormatted = formatEnergy(currentWh);
 
   // Calculate Sunshine Periods
-  const sunshineData = calculateSunshinePeriods(logs);
+  const sunshineData = calculateSunshinePeriods(logs, selectedDate);
   let currentSunshineHours = sunshineData.harianHours;
-  let sunshinePeriodLabel = 'Reset 00:00';
+  let sunshinePeriodLabel = isHistorical ? selectedDate : 'Reset 00:00';
 
   if (sunshinePeriod === 'mingguan') {
     currentSunshineHours = sunshineData.mingguanHours;
@@ -85,11 +98,17 @@ function SummaryCards({ latestRecord, logs = [] }) {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-blue-600 flex items-center gap-1.5">
               <Sun className="w-4 h-4 text-blue-600" />
-              Panel Surya (PV)
+              Panel Surya (PV) {isHistorical && <span className="text-[10px] lowercase font-normal">(peak)</span>}
             </span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${luxCat.color}`}>
-              {luxCat.label}
-            </span>
+            {isHistorical ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                Peak: {selectedDate}
+              </span>
+            ) : (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${luxCat.color}`}>
+                {luxCat.label}
+              </span>
+            )}
           </div>
 
           <div className="mt-4 flex items-baseline gap-2">
@@ -120,7 +139,7 @@ function SummaryCards({ latestRecord, logs = [] }) {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 flex items-center gap-1.5">
               <BatteryCharging className="w-4 h-4 text-emerald-600" />
-              Baterai (BAT)
+              Baterai (BAT) {isHistorical && <span className="text-[10px] lowercase font-normal">(peak)</span>}
             </span>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-100">
               {isCharging ? 'CHARGING' : 'DISCHARGING'}

@@ -605,13 +605,15 @@ export function calculateDiagnostics(latestRecord) {
 
 /**
  * Calculate Energy Accumulation per period in WIB Timezone
+ * Supports targetDate (YYYY-MM-DD) for historical daily inspection
  */
-export function calculateEnergyPeriods(logs) {
+export function calculateEnergyPeriods(logs, targetDate = null) {
   if (!logs || logs.length === 0) {
     return {
       harianWh: 0,
       mingguanWh: 0,
       bulananWh: 0,
+      activeDateStr: '',
       dailyChart: { labels: [], values: [] },
       weeklyChart: { labels: [], values: [] },
       monthlyChart: { labels: [], values: [] },
@@ -621,20 +623,21 @@ export function calculateEnergyPeriods(logs) {
   const sorted = [...logs].sort((a, b) => a.dateObj - b.dateObj);
   const latestDateObj = sorted[sorted.length - 1].dateObj;
   const latestWibDateStr = formatToWIB(latestDateObj).substring(0, 10);
+  const activeDateStr = targetDate || latestWibDateStr;
 
-  // Filter logs for today WIB (since 00:00 WIB)
-  const todayLogs = sorted.filter(item => {
-    const wibStr = formatToWIB(item.dateObj).substring(0, 10);
-    return wibStr === latestWibDateStr;
+  // Filter logs for selected day WIB (since 00:00 WIB)
+  const targetDayLogs = sorted.filter(item => {
+    const wibStr = item.wibDateStr || (item.dateObj ? formatToWIB(item.dateObj).substring(0, 10) : '');
+    return wibStr === activeDateStr;
   });
 
-  const harianWh = todayLogs.length > 0
-    ? Math.max(...todayLogs.map(item => Number(item.wh_pv_daily || 0)))
-    : Number(sorted[sorted.length - 1].wh_pv_daily || 0);
+  const harianWh = targetDayLogs.length > 0
+    ? Math.max(...targetDayLogs.map(item => Number(item.wh_pv_daily || 0)))
+    : (targetDate ? 0 : Number(sorted[sorted.length - 1].wh_pv_daily || 0));
 
   const dailyMap = {};
   sorted.forEach(item => {
-    const dateStr = formatToWIB(item.dateObj).substring(0, 10);
+    const dateStr = item.wibDateStr || (item.dateObj ? formatToWIB(item.dateObj).substring(0, 10) : '');
     const val = Number(item.wh_pv_daily || 0);
     if (!dailyMap[dateStr] || val > dailyMap[dateStr]) {
       dailyMap[dateStr] = val;
@@ -669,6 +672,7 @@ export function calculateEnergyPeriods(logs) {
     harianWh: parseFloat(harianWh.toFixed(2)),
     mingguanWh: parseFloat(mingguanWh.toFixed(2)),
     bulananWh: parseFloat(bulananWh.toFixed(2)),
+    activeDateStr,
     dailyChart: { labels: Object.keys(dailyMap), values: Object.values(dailyMap).map(v => parseFloat(v.toFixed(2))) },
     weeklyChart: { labels: Object.keys(weeklyMap), values: Object.values(weeklyMap).map(v => parseFloat(v.toFixed(2))) },
     monthlyChart: { labels: Object.keys(monthlyMap), values: Object.values(monthlyMap).map(v => parseFloat(v.toFixed(2))) },
@@ -678,7 +682,7 @@ export function calculateEnergyPeriods(logs) {
 /**
  * Calculate 10-minute Wh energy change and comparison against daily total Wh
  */
-export function calculate10MinWhStats(logs) {
+export function calculate10MinWhStats(logs, targetDate = null) {
   if (!logs || logs.length === 0) {
     return {
       wh10mChange: 0,
@@ -690,7 +694,19 @@ export function calculate10MinWhStats(logs) {
   }
 
   const sorted = [...logs].sort((a, b) => a.dateObj - b.dateObj);
-  const latestRecord = sorted[sorted.length - 1];
+  let relevantLogs = sorted;
+
+  if (targetDate) {
+    const filtered = sorted.filter(item => {
+      const itemDateStr = item.wibDateStr || (item.dateObj ? formatToWIB(item.dateObj).substring(0, 10) : '');
+      return itemDateStr === targetDate;
+    });
+    if (filtered.length > 0) {
+      relevantLogs = filtered;
+    }
+  }
+
+  const latestRecord = relevantLogs[relevantLogs.length - 1];
   const latestWh = Number(latestRecord.wh_pv_daily || 0);
 
   // Find record ~10 minutes ago
@@ -698,15 +714,15 @@ export function calculate10MinWhStats(logs) {
   const tenMinAgoMs = latestTimeMs - 10 * 60 * 1000;
 
   let prevRecord = null;
-  for (let i = sorted.length - 2; i >= 0; i--) {
-    if (sorted[i].dateObj.getTime() <= tenMinAgoMs + 2 * 60 * 1000) {
-      prevRecord = sorted[i];
+  for (let i = relevantLogs.length - 2; i >= 0; i--) {
+    if (relevantLogs[i].dateObj.getTime() <= tenMinAgoMs + 2 * 60 * 1000) {
+      prevRecord = relevantLogs[i];
       break;
     }
   }
 
-  if (!prevRecord && sorted.length >= 2) {
-    prevRecord = sorted[sorted.length - 2];
+  if (!prevRecord && relevantLogs.length >= 2) {
+    prevRecord = relevantLogs[relevantLogs.length - 2];
   }
 
   const prevWh = prevRecord ? Number(prevRecord.wh_pv_daily || 0) : 0;
@@ -738,31 +754,46 @@ function getWeekNumber(d) {
 
 /**
  * Filter logs based on period selection ('harian' | 'mingguan' | 'bulanan')
+ * In 'harian' mode: supports targetDate ('YYYY-MM-DD') for viewing specific past days in 10-minute detail
  */
-export function filterLogsByPeriod(logs, period = 'harian') {
+export function filterLogsByPeriod(logs, period = 'harian', targetDate = null) {
   if (!logs || logs.length === 0) return [];
 
   const sorted = [...logs].sort((a, b) => a.dateObj - b.dateObj);
   const latestRecord = sorted[sorted.length - 1];
   const latestDate = latestRecord.dateObj;
+  const latestWibDateStr = latestRecord.wibDateStr || (latestDate ? formatToWIB(latestDate).substring(0, 10) : '');
 
   if (period === 'harian') {
-    // Show logs starting from 00:00 WIB of the latest recorded day
-    const latestWibDateStr = latestRecord.wibDateStr || (latestDate ? formatToWIB(latestDate).substring(0, 10) : '');
-    const todayLogs = sorted.filter(item => (item.wibDateStr || formatToWIB(item.dateObj).substring(0, 10)) === latestWibDateStr);
+    const activeDate = targetDate || latestWibDateStr;
+    const targetDayLogs = sorted.filter(item => {
+      const itemDateStr = item.wibDateStr || (item.dateObj ? formatToWIB(item.dateObj).substring(0, 10) : '');
+      return itemDateStr === activeDate;
+    });
 
-    if (todayLogs.length >= 2) {
-      return todayLogs;
+    if (targetDayLogs.length > 0) {
+      return targetDayLogs;
     }
-    // Fallback to last 24h if today has fewer than 2 records
+
+    // If specific target date was requested and has no data, return empty so chart shows "No data for this date"
+    if (targetDate) {
+      return [];
+    }
+
+    // Fallback to last 24h if latest day has fewer than 2 records and no specific date was picked
     const cutoff24h = new Date(latestDate.getTime() - 24 * 60 * 60 * 1000);
     return sorted.filter(item => item.dateObj >= cutoff24h);
   }
 
   if (period === 'mingguan') {
-    // Show last 7 days of data
-    const cutoff7d = new Date(latestDate.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const filtered = sorted.filter(item => item.dateObj >= cutoff7d);
+    // Show last 7 days of data relative to targetDate (if given) or latestDate
+    let refDate = latestDate;
+    if (targetDate) {
+      const parsed = new Date(targetDate + 'T23:59:59');
+      if (!isNaN(parsed.getTime())) refDate = parsed;
+    }
+    const cutoff7d = new Date(refDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const filtered = sorted.filter(item => item.dateObj >= cutoff7d && item.dateObj <= refDate);
     if (filtered.length > 150) {
       const step = Math.ceil(filtered.length / 150);
       return filtered.filter((_, idx) => idx % step === 0 || idx === filtered.length - 1);
@@ -784,13 +815,15 @@ export function filterLogsByPeriod(logs, period = 'harian') {
 
 /**
  * Calculate Sunshine Duration per period in WIB Timezone
+ * Supports targetDate (YYYY-MM-DD) for historical daily inspection
  */
-export function calculateSunshinePeriods(logs) {
+export function calculateSunshinePeriods(logs, targetDate = null) {
   if (!logs || logs.length === 0) {
     return {
       harianHours: 0,
       mingguanHours: 0,
       bulananHours: 0,
+      activeDateStr: '',
       dailyChart: { labels: [], values: [] },
       weeklyChart: { labels: [], values: [] },
       monthlyChart: { labels: [], values: [] },
@@ -800,20 +833,21 @@ export function calculateSunshinePeriods(logs) {
   const sorted = [...logs].sort((a, b) => a.dateObj - b.dateObj);
   const latestDateObj = sorted[sorted.length - 1].dateObj;
   const latestWibDateStr = formatToWIB(latestDateObj).substring(0, 10);
+  const activeDateStr = targetDate || latestWibDateStr;
 
-  // Filter logs for today WIB (since 00:00 WIB)
-  const todayLogs = sorted.filter(item => {
-    const wibStr = formatToWIB(item.dateObj).substring(0, 10);
-    return wibStr === latestWibDateStr;
+  // Filter logs for selected day WIB (since 00:00 WIB)
+  const targetDayLogs = sorted.filter(item => {
+    const wibStr = item.wibDateStr || (item.dateObj ? formatToWIB(item.dateObj).substring(0, 10) : '');
+    return wibStr === activeDateStr;
   });
 
-  const harianHours = todayLogs.length > 0
-    ? Math.max(...todayLogs.map(item => Number(item.sunshine_hours_daily || 0)))
-    : Number(sorted[sorted.length - 1].sunshine_hours_daily || 0);
+  const harianHours = targetDayLogs.length > 0
+    ? Math.max(...targetDayLogs.map(item => Number(item.sunshine_hours_daily || 0)))
+    : (targetDate ? 0 : Number(sorted[sorted.length - 1].sunshine_hours_daily || 0));
 
   const dailyMap = {};
   sorted.forEach(item => {
-    const dateStr = formatToWIB(item.dateObj).substring(0, 10);
+    const dateStr = item.wibDateStr || (item.dateObj ? formatToWIB(item.dateObj).substring(0, 10) : '');
     const val = Number(item.sunshine_hours_daily || 0);
     if (!dailyMap[dateStr] || val > dailyMap[dateStr]) {
       dailyMap[dateStr] = val;
@@ -848,10 +882,52 @@ export function calculateSunshinePeriods(logs) {
     harianHours: parseFloat(harianHours.toFixed(2)),
     mingguanHours: parseFloat(mingguanHours.toFixed(2)),
     bulananHours: parseFloat(bulananHours.toFixed(2)),
+    activeDateStr,
     dailyChart: { labels: Object.keys(dailyMap), values: Object.values(dailyMap).map(v => parseFloat(v.toFixed(2))) },
     weeklyChart: { labels: Object.keys(weeklyMap), values: Object.values(weeklyMap).map(v => parseFloat(v.toFixed(2))) },
     monthlyChart: { labels: Object.keys(monthlyMap), values: Object.values(monthlyMap).map(v => parseFloat(v.toFixed(2))) },
   };
 }
+
+/**
+ * Extract all unique dates available in logs (YYYY-MM-DD), sorted chronologically
+ */
+export function getAvailableDates(logs) {
+  if (!logs || logs.length === 0) return [];
+  const dateSet = new Set();
+  logs.forEach(item => {
+    const dStr = item.wibDateStr || (item.dateObj ? formatToWIB(item.dateObj).substring(0, 10) : '');
+    if (dStr && dStr.length === 10) dateSet.add(dStr);
+  });
+  return Array.from(dateSet).sort();
+}
+
+/**
+ * Get latest date available in logs (YYYY-MM-DD)
+ */
+export function getLatestDate(logs) {
+  if (!logs || logs.length === 0) return '';
+  const sorted = [...logs].sort((a, b) => a.dateObj - b.dateObj);
+  const last = sorted[sorted.length - 1];
+  return last.wibDateStr || (last.dateObj ? formatToWIB(last.dateObj).substring(0, 10) : '');
+}
+
+/**
+ * Format YYYY-MM-DD string to friendly Indonesian date, e.g. "19 Oktober 2026"
+ */
+export function formatIndonesianDate(dateStr) {
+  if (!dateStr) return '-';
+  const parts = String(dateStr).split('-');
+  if (parts.length !== 3) return dateStr;
+  const monthNames = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  const day = parseInt(parts[2], 10);
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const year = parts[0];
+  return `${day} ${monthNames[monthIdx] || parts[1]} ${year}`;
+}
+
 
 
