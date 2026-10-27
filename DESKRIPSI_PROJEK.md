@@ -42,6 +42,14 @@ Aplikasi web ini dibangun berbasis **React** (Vite), **Apache ECharts**, dan **T
 8. **Automatic Fallback Local Mock Generator**:
    - Beralih otomatis ke generator data tiruan (*mock time-series*) 24 jam apabila koneksi ke Google Sheets mengalami error/offline untuk memastikan UI tidak crash.
 
+9. **Validasi & Komparasi Data Satelit ERA5 ECMWF**:
+   - Menu/tab navigasi baru untuk membandingkan data telemetri darat (Watt PV, Watt BAT, Sensor Lux) dengan estimasi radiasi satelit ERA5.
+   - Fitur upload file CSV ERA5 (Google Earth Engine) dengan dukungan file sampel Cilacap langsung.
+   - Konversi fisika satuan radiasi dari $\text{J/m}^2$ ke $\text{W/m}^2$ menggunakan de-akumulasi per jam:
+     $$\text{Radiasi (W/m}^2\text{)} = \frac{\Delta\text{ Energi (J/m}^2\text{)}}{3600\text{ s}}$$
+   - Penyelarasan waktu dan *hourly resampling* otomatis antara sensor (interval 10 menit) dengan jam ERA5 (WIB / UTC) hanya pada periode data yang beririsan.
+   - Visualisasi kurva multi-axis, kurva ternormalisasi, diagram pencar (*scatter plots*) dengan garis tren regresi linear, perhitungan korelasi Pearson ($r$), koefisien determinasi ($R^2$), serta ekspor tabel per jam ke CSV/Excel.
+
 ---
 
 ## 🗄️ 2. Struktur & Isi Database

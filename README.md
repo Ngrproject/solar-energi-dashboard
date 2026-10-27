@@ -30,12 +30,21 @@ Web Dashboard Monitoring Energi Panel Surya (50Wp/100Wp) berbasis **React** (Vit
    - **Dual Y-Axis Line Chart 3 (`LuxComparisonChart.jsx`)**: Kurva Komparasi Cahaya Matahari (`lux_val`) vs Parameter Terpilih (`p_pv`, `p_bat`, `v_pv`, `v_bat`).
    - **Bar Chart 4 (`DailyWhEChart.jsx`)**: Total Akumulasi Energi Wh Harian.
 
-4. **100% Identical SD Card CSV Exporter & History Table**
+4. **Validasi & Komparasi Data Satelit ERA5 ECMWF (Halaman Baru)**
+   - **Upload Berkas CSV Satelit ERA5**: Mendukung berkas CSV Google Earth Engine atau ECMWF CDS (`radiasi_J_m2`, `waktu`).
+   - **Konversi Fisika J/m² → W/m²**: Mengubah radiasi kumulatif harian menjadi fluks daya sesaat per jam melalui rumus meteorologi:
+     $$\text{Radiasi (W/m}^2\text{)} = \frac{\Delta\text{ Energi (J/m}^2\text{)}}{3600\text{ s}}$$
+   - **Penyelarasan Waktu & Resampling Per Jam**: Menggabungkan data sensor (interval 10 menit) menjadi rata-rata 1 jam untuk dicocokkan presisi pada jam yang sama dengan ERA5 (WIB / UTC).
+   - **Grafik Komparasi Multi-Axis & Normalisasi**: Kurva waktu Daya PV, Daya Baterai, Lux, dan Radiasi ERA5, serta opsi normalisasi 0-100% untuk membandingkan bentuk gelombang.
+   - **Diagram Pencar (Scatter Plots) & Analisis Korelasi**: Menghitung koefisien korelasi Pearson ($r$), koefisien determinasi ($R^2$), garis tren regresi linear ($y = mx + c$), dan interpretasi meteorologi BMKG.
+   - **Export Data Perbandingan**: Download hasil komparasi per jam dalam format CSV atau Excel (.xlsx).
+
+5. **100% Identical SD Card CSV Exporter & History Table**
    - Filter rentang tanggal data log (`date_from` s/d `date_to`).
    - Tombol **Export / Download CSV** (`csvExporter.js`) yang men-stream file `.csv` secara langsung dengan 16 kolom data 100% identik dengan berkas log SD Card ESP32 & Google Sheets.
    - Paginasi data log interaktif.
 
-5. **Automatic Fallback & Mock Data Preview**
+6. **Automatic Fallback & Mock Data Preview**
    - Jika koneksi Google Sheets mengalami error/timeout, `solarService.js` secara otomatis beralih ke **Fallback Local Time-Series Mock Generator** 24 jam untuk memastikan UI dashboard tetap dapat di-render dan di-preview 100% sempurna tanpa crash.
 
 ---

@@ -206,3 +206,122 @@ export function exportToXlsx(logs, dateFrom, dateTo, timeZoneMode = 'WIB') {
 
   XLSX.writeFile(workbook, fileName);
 }
+
+/**
+ * Export aligned ERA5 Satellite vs Sensor Comparison Data to CSV
+ */
+export function exportEra5ComparisonToCsv(alignedData, timeZoneMode = 'WIB') {
+  if (!alignedData || alignedData.length === 0) {
+    alert("Tidak ada data komparasi untuk di-export.");
+    return;
+  }
+
+  const headers = [
+    `TIMESTAMP (${timeZoneMode})`,
+    'RADIASI_ERA5 (W/m2)',
+    'RADIASI_ERA5_RAW (J/m2)',
+    'WATT_PV_MEAN (W)',
+    'WATT_BAT_MEAN (W)',
+    'LUX_MEAN (lx)',
+    'V_PV_MEAN (V)',
+    'V_BAT_MEAN (V)',
+    'MAX_WATT_PV (W)',
+    'MAX_LUX (lx)',
+    'SENSOR_SAMPLES_COUNT',
+    'NORM_ERA5 (%)',
+    'NORM_PV (%)',
+    'NORM_BAT (%)',
+    'NORM_LUX (%)'
+  ];
+
+  const csvRows = [headers.join(',')];
+
+  alignedData.forEach((row) => {
+    const values = [
+      `"${row.displayTime || row.timeKey}"`,
+      row.era5_w_m2,
+      row.era5_j_m2,
+      row.watt_pv,
+      row.watt_bat,
+      row.lux,
+      row.v_pv ?? '',
+      row.v_bat ?? '',
+      row.max_watt_pv ?? '',
+      row.max_lux ?? '',
+      row.sample_count,
+      row.norm_era5 ?? '',
+      row.norm_pv ?? '',
+      row.norm_bat ?? '',
+      row.norm_lux ?? ''
+    ];
+    csvRows.push(values.join(','));
+  });
+
+  const csvContent = csvRows.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const fileName = `komparasi_era5_sensor_${timeZoneMode}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', fileName);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+/**
+ * Export aligned ERA5 Satellite vs Sensor Comparison Data to Excel (.xlsx)
+ */
+export function exportEra5ComparisonToXlsx(alignedData, timeZoneMode = 'WIB') {
+  if (!alignedData || alignedData.length === 0) {
+    alert("Tidak ada data komparasi untuk di-export.");
+    return;
+  }
+
+  const sheetData = alignedData.map((row) => ({
+    [`TIMESTAMP (${timeZoneMode})`]: row.displayTime || row.timeKey,
+    'Radiasi ERA5 (W/m²)': row.era5_w_m2,
+    'Radiasi ERA5 Raw (J/m²)': row.era5_j_m2,
+    'Daya PV Rata-rata (Watt)': row.watt_pv,
+    'Daya Baterai Rata-rata (Watt)': row.watt_bat,
+    'Sensor Lux Rata-rata (lx)': row.lux,
+    'Tegangan PV (V)': row.v_pv ?? '',
+    'Tegangan Baterai (V)': row.v_bat ?? '',
+    'Puncak PV (Watt)': row.max_watt_pv ?? '',
+    'Puncak Lux (lx)': row.max_lux ?? '',
+    'Jumlah Sampel Sensor': row.sample_count,
+    'Normalisasi ERA5 (%)': row.norm_era5 ?? '',
+    'Normalisasi PV (%)': row.norm_pv ?? '',
+    'Normalisasi BAT (%)': row.norm_bat ?? '',
+    'Normalisasi LUX (%)': row.norm_lux ?? '',
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(sheetData);
+
+  worksheet['!cols'] = [
+    { wch: 22 }, // TIMESTAMP
+    { wch: 20 }, // Radiasi ERA5 W/m2
+    { wch: 22 }, // Radiasi ERA5 Raw
+    { wch: 22 }, // Daya PV
+    { wch: 24 }, // Daya Baterai
+    { wch: 22 }, // Lux
+    { wch: 16 }, // V_PV
+    { wch: 18 }, // V_BAT
+    { wch: 16 }, // Puncak PV
+    { wch: 16 }, // Puncak Lux
+    { wch: 20 }, // Jumlah Sampel
+    { wch: 18 }, // Norm ERA5
+    { wch: 18 }, // Norm PV
+    { wch: 18 }, // Norm BAT
+    { wch: 18 }, // Norm LUX
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'ERA5 vs Sensor');
+
+  const fileName = `komparasi_era5_sensor_${timeZoneMode}_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`;
+  XLSX.writeFile(workbook, fileName);
+}
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { RefreshCw, CheckCircle2, AlertTriangle, BellRing, Layers, LayoutDashboard, Database } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertTriangle, BellRing, Layers, LayoutDashboard, Database, Satellite } from 'lucide-react';
 import { fetchSolarLogs, calculateDiagnostics, getAvailableSheetOptions, getAvailableDates, getLatestDate } from './services/solarService';
 import logoImg from './assets/logo.png';
 import RealTimeClock from './components/RealTimeClock';
@@ -13,9 +13,11 @@ import DeltaWh10mChart from './components/DeltaWh10mChart';
 import LuxComparisonChart from './components/LuxComparisonChart';
 import PanelEstimationChart from './components/PanelEstimationChart';
 import DataTable from './components/DataTable';
+import Era5ComparisonPage from './components/Era5ComparisonPage';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' (Page 1) or 'data' (Page 2)
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' (Page 1), 'data' (Page 2), or 'era5' (Page 3)
   const [logs, setLogs] = useState([]);
   const [activeSheet, setActiveSheet] = useState('AUTO');
   const [selectedSheet, setSelectedSheet] = useState('AUTO');
@@ -75,12 +77,13 @@ export default function App() {
   }, [selectedSheet]);
 
   useEffect(() => {
-    if (!autoRefresh) return;
+    // Only auto-refresh in live Dashboard mode; pause during ERA5 comparison inspection to avoid resetting zoom/timeline
+    if (!autoRefresh || activeTab === 'era5') return;
     const interval = setInterval(() => {
       loadData(true, selectedSheet);
     }, 10000);
     return () => clearInterval(interval);
-  }, [autoRefresh, selectedSheet]);
+  }, [autoRefresh, selectedSheet, activeTab]);
 
   const latestRecord = useMemo(() => (logs.length > 0 ? logs[logs.length - 1] : null), [logs]);
   const diagnostics = useMemo(() => calculateDiagnostics(latestRecord), [latestRecord]);
@@ -161,11 +164,11 @@ export default function App() {
         </div>
       </header>
 
-      {/* PAGE NAVIGATION TABS BAR (PAGE 1: DASHBOARD, PAGE 2: DATA ENERGI) */}
-      <nav className="flex items-center gap-2 my-6 bg-slate-200/60 p-1.5 rounded-2xl max-w-md shadow-inner border border-slate-200/80">
+      {/* PAGE NAVIGATION TABS BAR (PAGE 1: DASHBOARD, PAGE 2: DATA ENERGI, PAGE 3: KOMPARASI ERA5) */}
+      <nav className="flex items-center gap-2 my-6 bg-slate-200/60 p-1.5 rounded-2xl max-w-xl shadow-inner border border-slate-200/80">
         <button
           onClick={() => setActiveTab('dashboard')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'dashboard'
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'dashboard'
               ? 'bg-white text-blue-600 shadow-md shadow-slate-200/80 scale-[1.02]'
               : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
             }`}
@@ -176,7 +179,7 @@ export default function App() {
 
         <button
           onClick={() => setActiveTab('data')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'data'
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'data'
               ? 'bg-white text-blue-600 shadow-md shadow-slate-200/80 scale-[1.02]'
               : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
             }`}
@@ -185,6 +188,20 @@ export default function App() {
           <span>Data Energi</span>
           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${activeTab === 'data' ? 'bg-blue-100 text-blue-700' : 'bg-slate-300/80 text-slate-700'}`}>
             {logs.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('era5')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'era5'
+              ? 'bg-white text-blue-600 shadow-md shadow-slate-200/80 scale-[1.02]'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+        >
+          <Satellite className={`w-4 h-4 ${activeTab === 'era5' ? 'text-blue-600' : 'text-slate-400'}`} />
+          <span>Komparasi ERA5</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${activeTab === 'era5' ? 'bg-orange-100 text-orange-700' : 'bg-slate-300/80 text-slate-700'}`}>
+            Satelit
           </span>
         </button>
       </nav>
@@ -257,7 +274,7 @@ export default function App() {
             />
           </section>
         </main>
-      ) : (
+      ) : activeTab === 'data' ? (
         /* PAGE 2: DATA ENERGI VIEW */
         <main>
           <DataTable
@@ -267,6 +284,16 @@ export default function App() {
             dateTo={dateTo}
             setDateTo={setDateTo}
           />
+        </main>
+      ) : (
+        /* PAGE 3: KOMPARASI ERA5 SATELLITE VIEW */
+        <main>
+          <ErrorBoundary>
+            <Era5ComparisonPage
+              logs={logs}
+              selectedGlobalDate={selectedDailyDate}
+            />
+          </ErrorBoundary>
         </main>
       )}
 
