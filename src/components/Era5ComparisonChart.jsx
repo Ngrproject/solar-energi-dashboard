@@ -120,9 +120,11 @@ export default function Era5ComparisonChart({
         {
           type: 'value',
           name: 'Nilai Terpadu (W, W/m², lx)',
+          min: 0,
+          max: null,
           nameTextStyle: { color: '#64748b', fontSize: 11 },
           splitLine: { lineStyle: { color: '#f1f5f9' } },
-          axisLabel: { color: '#64748b', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' },
+          axisLabel: { color: '#64748b', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', formatter: '{value}' },
         },
       ];
       powerAxisIndex = 0;
@@ -138,10 +140,17 @@ export default function Era5ComparisonChart({
           type: 'value',
           name: 'Daya Listrik (Watt)',
           position: 'left',
+          min: 0,
+          max: null,
           nameTextStyle: { color: '#2563eb', fontWeight: 600, fontSize: 11 },
           splitLine: { lineStyle: { color: '#f1f5f9' } },
           axisLine: { show: true, lineStyle: { color: '#2563eb' } },
-          axisLabel: { color: '#2563eb', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' },
+          axisLabel: {
+            color: '#2563eb',
+            fontSize: 10,
+            fontFamily: 'JetBrains Mono, monospace',
+            formatter: '{value} W',
+          },
         });
       }
 
@@ -151,10 +160,17 @@ export default function Era5ComparisonChart({
           type: 'value',
           name: 'Radiasi ERA5 (W/m²)',
           position: hasPower ? 'right' : 'left',
+          min: 0,
+          max: null,
           nameTextStyle: { color: '#ea580c', fontWeight: 600, fontSize: 11 },
           splitLine: hasPower ? { show: false } : { lineStyle: { color: '#f1f5f9' } },
           axisLine: { show: true, lineStyle: { color: '#ea580c' } },
-          axisLabel: { color: '#ea580c', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' },
+          axisLabel: {
+            color: '#ea580c',
+            fontSize: 10,
+            fontFamily: 'JetBrains Mono, monospace',
+            formatter: '{value}',
+          },
         });
       }
 
@@ -166,6 +182,8 @@ export default function Era5ComparisonChart({
           name: 'Sensor Lux (lx)',
           position: 'right',
           offset: isOffset ? 65 : 0,
+          min: 0,
+          max: null,
           nameTextStyle: { color: '#8b5cf6', fontWeight: 600, fontSize: 11 },
           splitLine: { show: false },
           axisLine: { show: true, lineStyle: { color: '#8b5cf6' } },
@@ -416,11 +434,10 @@ export default function Era5ComparisonChart({
         <div className="flex items-center bg-slate-100 p-1 rounded-xl self-start lg:self-auto text-xs font-semibold">
           <button
             onClick={() => setScaleMode('separate')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-              scaleMode === 'separate'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${scaleMode === 'separate'
                 ? 'bg-white text-blue-600 shadow-sm font-bold'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
             title="Sumbu Daya (0-100W) di kiri dan Radiasi (0-1000 W/m²) di kanan agar kurva tidak tenggelam"
           >
             <Scale className="w-3.5 h-3.5" />
@@ -428,11 +445,10 @@ export default function Era5ComparisonChart({
           </button>
           <button
             onClick={() => setScaleMode('normalized')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-              scaleMode === 'normalized'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${scaleMode === 'normalized'
                 ? 'bg-white text-blue-600 shadow-sm font-bold'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
             title="Skala persentase 0-100% untuk membandingkan bentuk gelombang"
           >
             <Layers className="w-3.5 h-3.5" />
@@ -440,11 +456,10 @@ export default function Era5ComparisonChart({
           </button>
           <button
             onClick={() => setScaleMode('shared')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-              scaleMode === 'shared'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${scaleMode === 'shared'
                 ? 'bg-white text-blue-600 shadow-sm font-bold'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
             title="Satu sumbu nilai asli gabungan"
           >
             <LineChart className="w-3.5 h-3.5" />
@@ -460,41 +475,37 @@ export default function Era5ComparisonChart({
           <span className="text-slate-500 font-semibold text-[11px] mr-1">Preset Komparasi:</span>
           <button
             onClick={() => applyPreset('pv')}
-            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-              selectedParams.era5 && selectedParams.p_pv && !selectedParams.p_bat && !selectedParams.lux
+            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${selectedParams.era5 && selectedParams.p_pv && !selectedParams.p_bat && !selectedParams.lux
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-            }`}
+              }`}
           >
             ⚡ ERA5 vs Daya PV
           </button>
           <button
             onClick={() => applyPreset('bat')}
-            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-              selectedParams.era5 && !selectedParams.p_pv && selectedParams.p_bat && !selectedParams.lux
+            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${selectedParams.era5 && !selectedParams.p_pv && selectedParams.p_bat && !selectedParams.lux
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-            }`}
+              }`}
           >
             🔋 ERA5 vs Baterai
           </button>
           <button
             onClick={() => applyPreset('lux')}
-            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-              selectedParams.era5 && !selectedParams.p_pv && !selectedParams.p_bat && selectedParams.lux
+            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${selectedParams.era5 && !selectedParams.p_pv && !selectedParams.p_bat && selectedParams.lux
                 ? 'bg-purple-600 text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-            }`}
+              }`}
           >
             💡 ERA5 vs Lux
           </button>
           <button
             onClick={() => applyPreset('all')}
-            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-              selectedParams.era5 && selectedParams.p_pv && selectedParams.p_bat && selectedParams.lux
+            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${selectedParams.era5 && selectedParams.p_pv && selectedParams.p_bat && selectedParams.lux
                 ? 'bg-slate-800 text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-            }`}
+              }`}
           >
             ☀️ Semua (4 Parameter)
           </button>
@@ -506,11 +517,10 @@ export default function Era5ComparisonChart({
           {/* ERA5 */}
           <button
             onClick={() => toggleMetric('era5')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition-all ${
-              selectedParams.era5
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition-all ${selectedParams.era5
                 ? 'bg-orange-50 border-orange-300 text-orange-700 shadow-2xs'
                 : 'bg-white border-slate-200 text-slate-400 opacity-60'
-            }`}
+              }`}
           >
             <span className={`w-2.5 h-2.5 rounded-full ${selectedParams.era5 ? 'bg-orange-600' : 'bg-slate-300'}`}></span>
             <span>Radiasi ERA5</span>
@@ -519,11 +529,10 @@ export default function Era5ComparisonChart({
           {/* PV */}
           <button
             onClick={() => toggleMetric('p_pv')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition-all ${
-              selectedParams.p_pv
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition-all ${selectedParams.p_pv
                 ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-2xs'
                 : 'bg-white border-slate-200 text-slate-400 opacity-60'
-            }`}
+              }`}
           >
             <span className={`w-2.5 h-2.5 rounded-full ${selectedParams.p_pv ? 'bg-blue-600' : 'bg-slate-300'}`}></span>
             <span>Daya PV (Watt)</span>
@@ -532,11 +541,10 @@ export default function Era5ComparisonChart({
           {/* BAT */}
           <button
             onClick={() => toggleMetric('p_bat')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition-all ${
-              selectedParams.p_bat
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition-all ${selectedParams.p_bat
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-2xs'
                 : 'bg-white border-slate-200 text-slate-400 opacity-60'
-            }`}
+              }`}
           >
             <span className={`w-2.5 h-2.5 rounded-full ${selectedParams.p_bat ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
             <span>Daya Baterai</span>
@@ -545,11 +553,10 @@ export default function Era5ComparisonChart({
           {/* LUX */}
           <button
             onClick={() => toggleMetric('lux')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition-all ${
-              selectedParams.lux
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition-all ${selectedParams.lux
                 ? 'bg-purple-50 border-purple-300 text-purple-700 shadow-2xs'
                 : 'bg-white border-slate-200 text-slate-400 opacity-60'
-            }`}
+              }`}
           >
             <span className={`w-2.5 h-2.5 rounded-full ${selectedParams.lux ? 'bg-purple-500' : 'bg-slate-300'}`}></span>
             <span>Sensor Lux</span>
@@ -573,7 +580,7 @@ export default function Era5ComparisonChart({
             style={{ height: '100%', width: '100%' }}
             opts={{ renderer: 'canvas' }}
             onEvents={onEvents}
-            notMerge={false}
+            notMerge={true}
           />
         </div>
       )}

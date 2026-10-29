@@ -26,11 +26,10 @@ import Era5ComparisonChart from './Era5ComparisonChart';
 import Era5CorrelationScatterCharts from './Era5CorrelationScatterCharts';
 import Era5ComparisonTable from './Era5ComparisonTable';
 
-export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' }) {
-  // ERA5 File State
+export default function Era5ComparisonPage({ logs = [] }) {
+  // ERA5 File State: initially empty (user must upload their CSV file first)
   const [era5CsvText, setEra5CsvText] = useState('');
   const [era5FileName, setEra5FileName] = useState('');
-  const [isLoadingSample, setIsLoadingSample] = useState(false);
   const [uploadError, setUploadError] = useState(null);
 
   // Conversion & Settings
@@ -45,31 +44,21 @@ export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' 
   const [customSensorLogs, setCustomSensorLogs] = useState([]);
   const [customSensorFileName, setCustomSensorFileName] = useState('');
 
+  // Ref for ERA5 File Input
   const fileInputRef = useRef(null);
-  const sensorFileInputRef = useRef(null);
 
-  // Auto-load sample ERA5 Cilacap on mount if no file uploaded yet
-  useEffect(() => {
-    async function loadDefaultSample() {
-      if (era5CsvText) return;
-      try {
-        setIsLoadingSample(true);
-        const res = await fetch('/Data_Radiasi_ERA5_Cilacap.csv');
-        if (res.ok) {
-          const text = await res.text();
-          if (text && text.includes('radiasi')) {
-            setEra5CsvText(text);
-            setEra5FileName('Data_Radiasi_ERA5_Cilacap.csv (Sampel BMKG Cilacap)');
-          }
-        }
-      } catch (err) {
-        console.warn('Could not auto-load sample ERA5 file:', err);
-      } finally {
-        setIsLoadingSample(false);
-      }
-    }
-    loadDefaultSample();
-  }, []);
+  // Timezone handler: resets selectedDate to 'ALL' to prevent timezone day-boundary cutoff
+  const handleTimeZoneChange = (newTz) => {
+    setTimeZone(newTz);
+    setSelectedDate('ALL');
+  };
+
+  // Detect whether uploaded CSV is already preprocessed hourly
+  const isPreprocessedHourly = useMemo(() => {
+    if (!era5CsvText) return false;
+    const lower = era5CsvText.substring(0, 600).toLowerCase();
+    return lower.includes('irradiansi_rata2') || lower.includes('per_jam');
+  }, [era5CsvText]);
 
   // Handle ERA5 File Upload
   const handleEra5FileUpload = (event) => {
@@ -83,8 +72,14 @@ export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' 
     reader.onload = (e) => {
       const content = e.target?.result;
       if (typeof content === 'string') {
-        if (!content.toLowerCase().includes('radiasi') && !content.toLowerCase().includes('j_m2') && !content.toLowerCase().includes('ssrd')) {
-          setUploadError('Peringatan: Berkas CSV tidak terdeteksi memiliki kolom radiasi (radiasi_J_m2 atau ssrd).');
+        const lower = content.toLowerCase();
+        if (
+          !lower.includes('radiasi') &&
+          !lower.includes('j_m2') &&
+          !lower.includes('irradiansi') &&
+          !lower.includes('ssrd')
+        ) {
+          setUploadError('Peringatan: Berkas CSV tidak terdeteksi memiliki kolom radiasi (radiasi_J_m2, irradiansi_rata2_W_m2, atau ssrd).');
         }
         setEra5CsvText(content);
       }
@@ -258,7 +253,7 @@ export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' 
                 Klik untuk Memilih File CSV atau Drag & Drop di sini
               </div>
               <div className="text-[11px] text-slate-400 mt-1">
-                Contoh: Data_Radiasi_ERA5_Cilacap.csv
+                Contoh: ERA5Land_Radiasi_Cilacap_2026-10-01_sampai_2026-10-28.csv
               </div>
             </div>
 
@@ -287,7 +282,7 @@ export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' 
             )}
           </div>
 
-          {/* Quick Action Buttons */}
+          {/* Upload Status Bar */}
           <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
             <div className="text-xs text-slate-500">
               {availableDates.length > 0 ? (
@@ -296,31 +291,23 @@ export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' 
                   <strong className="text-slate-700">{availableDates[availableDates.length - 1]}</strong>
                 </span>
               ) : (
-                <span>Belum ada data yang dimuat</span>
+                <span className="italic text-amber-600 font-medium">Wajib mengunggah berkas CSV satelit untuk memulai</span>
               )}
             </div>
 
-            <button
-              onClick={async () => {
-                setIsLoadingSample(true);
-                try {
-                  const res = await fetch('/Data_Radiasi_ERA5_Cilacap.csv');
-                  const text = await res.text();
-                  setEra5CsvText(text);
-                  setEra5FileName('Data_Radiasi_ERA5_Cilacap.csv (Sampel BMKG Cilacap)');
+            {era5FileName && (
+              <button
+                onClick={() => {
+                  setEra5CsvText('');
+                  setEra5FileName('');
                   setUploadError(null);
-                } catch (e) {
-                  alert('Gagal memuat file sampel.');
-                } finally {
-                  setIsLoadingSample(false);
-                }
-              }}
-              disabled={isLoadingSample}
-              className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSample ? 'animate-spin' : ''}`} />
-              <span>Muat Sampel ERA5 Cilacap</span>
-            </button>
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="text-xs font-semibold text-rose-600 hover:text-rose-800 transition-colors"
+              >
+                Hapus / Reset File
+              </button>
+            )}
           </div>
         </div>
 
@@ -339,31 +326,53 @@ export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' 
               </div>
             </div>
 
-            {/* Formula Explanation Badge */}
-            <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl mb-4 text-xs">
-              <div className="flex items-center gap-1.5 font-bold text-amber-800 mb-1">
-                <Info className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span>Rumus Konversi Fisika:</span>
+            {/* Formula Explanation / Preprocessed Status Badge */}
+            {isPreprocessedHourly ? (
+              <div className="p-3 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl mb-4 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-emerald-800 mb-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Format Fluks Per Jam Terdeteksi:</span>
+                </div>
+                <div className="font-mono text-[11px] text-emerald-950 bg-white/80 px-2 py-1 rounded-lg border border-emerald-200/60 mb-1">
+                  irradiansi_rata2_W_m2 (ERA5-Land)
+                </div>
+                <p className="text-[10px] text-emerald-700 leading-tight">
+                  Berkas CSV ini sudah berisi data fluks radiasi per jam yang sudah dihitung langsung oleh ERA5-Land (bukan data akumulatif). Maka nilai <strong>De-akumulasi</strong> dan <strong>Bagi Langsung</strong> bernilai <strong>identik</strong> ({stats.peak_era5.toFixed(1)} W/m²).
+                </p>
               </div>
-              <div className="font-mono text-[11px] text-amber-900 bg-white/70 px-2 py-1 rounded-lg border border-amber-200/50">
-                W/m² = Δ Energi (J/m²) ÷ 3600 detik
+            ) : (
+              <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl mb-4 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-amber-800 mb-1">
+                  <Info className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>Rumus Konversi Fisika:</span>
+                </div>
+                <div className="font-mono text-[11px] text-amber-900 bg-white/70 px-2 py-1 rounded-lg border border-amber-200/50">
+                  W/m² = Δ Energi (J/m²) ÷ 3600 detik
+                </div>
+                <p className="text-[10px] text-amber-700 mt-1 leading-tight">
+                  Data ERA5 SSRD mengakumulasi energi radiasi harian mulai 00:00 UTC. De-akumulasi menghitung fluks per jam secara presisi.
+                </p>
               </div>
-              <p className="text-[10px] text-amber-700 mt-1 leading-tight">
-                Data ERA5-Land mengakumulasi energi radiasi harian mulai 00:00 UTC. De-akumulasi menghitung fluks per jam secara presisi.
-              </p>
-            </div>
+            )}
 
             {/* Settings Toggles */}
             <div className="space-y-3 text-xs">
               {/* De-accumulation Mode */}
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Metode Konversi:</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-700">Metode Konversi:</label>
+                  {isPreprocessedHourly && (
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Nilai Identik
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setDeaccumulate(true)}
-                    className={`py-2 px-2.5 rounded-xl border text-left transition-all ${
+                    className={`py-2 px-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                       deaccumulate
-                        ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold'
+                        ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                   >
@@ -372,9 +381,9 @@ export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' 
                   </button>
                   <button
                     onClick={() => setDeaccumulate(false)}
-                    className={`py-2 px-2.5 rounded-xl border text-left transition-all ${
+                    className={`py-2 px-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                       !deaccumulate
-                        ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold'
+                        ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                   >
@@ -389,8 +398,8 @@ export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' 
                 <label className="font-semibold text-slate-700 block mb-1">Zona Waktu Komparasi:</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => setTimeZone('WIB')}
-                    className={`py-1.5 px-3 rounded-xl border font-bold transition-all ${
+                    onClick={() => handleTimeZoneChange('WIB')}
+                    className={`py-1.5 px-3 rounded-xl border font-bold transition-all cursor-pointer ${
                       timeZone === 'WIB'
                         ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -399,8 +408,8 @@ export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' 
                     WIB (UTC+7)
                   </button>
                   <button
-                    onClick={() => setTimeZone('UTC')}
-                    className={`py-1.5 px-3 rounded-xl border font-bold transition-all ${
+                    onClick={() => handleTimeZoneChange('UTC')}
+                    className={`py-1.5 px-3 rounded-xl border font-bold transition-all cursor-pointer ${
                       timeZone === 'UTC'
                         ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -409,19 +418,27 @@ export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' 
                     UTC Standar
                   </button>
                 </div>
+                <div className="text-[10px] text-slate-400 mt-1">
+                  {timeZone === 'WIB'
+                    ? 'Puncak radiasi siang di Cilacap berada pada ~12:00 WIB'
+                    : 'Puncak radiasi siang di Cilacap berada pada ~05:00 UTC (WIB - 7 Jam)'}
+                </div>
               </div>
 
               {/* Daylight Only Filter Switch */}
               <div className="flex items-center justify-between pt-1">
                 <div>
                   <span className="font-semibold text-slate-700">Hanya Jam Penyinaran:</span>
-                  <div className="text-[10px] text-slate-400">06:00 - 18:00 WIB (Siang Hari)</div>
+                  <div className="text-[10px] text-slate-500 font-medium">
+                    {daylightOnly ? 'Aktif: Hanya 06:00 - 18:00 WIB (268 Jam)' : 'Non-aktif: 24 Jam Penuh (498 Jam)'}
+                  </div>
                 </div>
                 <button
                   onClick={() => setDaylightOnly(!daylightOnly)}
-                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer ${
                     daylightOnly ? 'bg-blue-600 justify-end' : 'bg-slate-300 justify-start'
                   }`}
+                  title={daylightOnly ? "Beralih ke mode 24 jam penuh" : "Beralih ke hanya jam siang"}
                 >
                   <span className="bg-white w-4 h-4 rounded-full shadow-md block"></span>
                 </button>
@@ -439,193 +456,255 @@ export default function Era5ComparisonPage({ logs = [], selectedGlobalDate = '' 
         </div>
       </div>
 
-      {/* SECTION 2: STATISTICAL CORRELATION SUMMARY CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: ERA5 vs Watt PV */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-2xl">
-              <Zap className="w-5 h-5" />
+      {/* CONDITIONAL RENDER: EMPTY STATE VS COMPARISON DASHBOARD */}
+      {era5Records.length === 0 ? (
+        <div className="bg-white rounded-3xl p-8 sm:p-12 border-2 border-dashed border-slate-200 shadow-xs text-center">
+          <div className="max-w-2xl mx-auto">
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-blue-100 shadow-inner">
+              <Satellite className="w-8 h-8 text-blue-600" />
             </div>
-            <span className={`text-xs px-2.5 py-1 rounded-full font-bold border ${strengthPv.badgeBg}`}>
-              {strengthPv.label}
-            </span>
-          </div>
-          <div className="text-xs font-semibold text-slate-500">Korelasi ERA5 vs Daya PV</div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
-              r = {stats.r_pv > 0 ? `+${stats.r_pv}` : stats.r_pv}
+
+            <h3 className="text-xl font-black text-slate-800 tracking-tight mb-2">
+              Belum Ada Data Satelit ERA5 yang Dimuat
+            </h3>
+            <p className="text-sm text-slate-500 leading-relaxed mb-6">
+              Silakan unggah berkas CSV data radiasi satelit ERA5 (misalnya <span className="font-mono text-xs px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md font-semibold">ERA5Land_Radiasi_Cilacap_2026-10-01_sampai_2026-10-28.csv</span>) pada panel unggah di atas.
+              Grafik komparasi, korelasi, dan tabel evaluasi akan otomatis ditampilkan setelah berkas terbaca.
+            </p>
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all cursor-pointer"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Pilih Berkas CSV ERA5 Sekarang
+            </button>
+
+            {/* Feature Highlights Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8 pt-8 border-t border-slate-100 text-left">
+              <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60">
+                <div className="flex items-center gap-2 mb-1.5 text-blue-600 font-bold text-xs">
+                  <Zap className="w-4 h-4 shrink-0" />
+                  <span>1. Konversi W/m² Otomatis</span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Mendukung konversi Joules/m² (GEE) maupun nilai irradiansi W/m² (ERA5-Land) secara instan.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60">
+                <div className="flex items-center gap-2 mb-1.5 text-indigo-600 font-bold text-xs">
+                  <BarChart3 className="w-4 h-4 shrink-0" />
+                  <span>2. Skala Sumbu Mandiri</span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Daya PV (0–100 W) dan Radiasi Satelit (0–1000 W/m²) dipisahkan sumbunya agar kurva terbaca jelas.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60">
+                <div className="flex items-center gap-2 mb-1.5 text-emerald-600 font-bold text-xs">
+                  <Sparkles className="w-4 h-4 shrink-0" />
+                  <span>3. Analisis Korelasi Pearson</span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Menghitung koefisien korelasi linear r dan R² serta visualisasi diagram pencar (scatter plot).
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <span>R² (Determinasi):</span>
-            <span className="font-mono font-bold text-blue-700">{(stats.r2_pv * 100).toFixed(1)}%</span>
-          </div>
-          <div className="text-[10px] text-slate-400 mt-1 leading-tight">
-            Variasi daya PV dijelaskan oleh radiasi satelit.
           </div>
         </div>
+      ) : (
+        <>
+          {/* SECTION 2: STATISTICAL CORRELATION SUMMARY CARDS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: ERA5 vs Watt PV */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-2xl">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-bold border ${strengthPv.badgeBg}`}>
+                  {strengthPv.label}
+                </span>
+              </div>
+              <div className="text-xs font-semibold text-slate-500">Korelasi ERA5 vs Daya PV</div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <div className="text-2xl font-black text-slate-900 tracking-tight">
+                  r = {stats.r_pv > 0 ? `+${stats.r_pv}` : stats.r_pv}
+                </div>
+              </div>
+              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <span>R² (Determinasi):</span>
+                <span className="font-mono font-bold text-blue-700">{(stats.r2_pv * 100).toFixed(1)}%</span>
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1 leading-tight">
+                Variasi daya PV dijelaskan oleh radiasi satelit.
+              </div>
+            </div>
 
-        {/* Card 2: ERA5 vs Watt BAT */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-2xl">
-              <Battery className="w-5 h-5" />
+            {/* Card 2: ERA5 vs Watt BAT */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-2xl">
+                  <Battery className="w-5 h-5" />
+                </div>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-bold border ${strengthBat.badgeBg}`}>
+                  {strengthBat.label}
+                </span>
+              </div>
+              <div className="text-xs font-semibold text-slate-500">Korelasi ERA5 vs Baterai</div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <div className="text-2xl font-black text-slate-900 tracking-tight">
+                  r = {stats.r_bat > 0 ? `+${stats.r_bat}` : stats.r_bat}
+                </div>
+              </div>
+              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <span>R² (Determinasi):</span>
+                <span className="font-mono font-bold text-emerald-700">{(stats.r2_bat * 100).toFixed(1)}%</span>
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1 leading-tight">
+                Kesesuaian fluks satelit dengan pengisian baterai.
+              </div>
             </div>
-            <span className={`text-xs px-2.5 py-1 rounded-full font-bold border ${strengthBat.badgeBg}`}>
-              {strengthBat.label}
-            </span>
-          </div>
-          <div className="text-xs font-semibold text-slate-500">Korelasi ERA5 vs Baterai</div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
-              r = {stats.r_bat > 0 ? `+${stats.r_bat}` : stats.r_bat}
-            </div>
-          </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <span>R² (Determinasi):</span>
-            <span className="font-mono font-bold text-emerald-700">{(stats.r2_bat * 100).toFixed(1)}%</span>
-          </div>
-          <div className="text-[10px] text-slate-400 mt-1 leading-tight">
-            Kesesuaian fluks satelit dengan pengisian baterai.
-          </div>
-        </div>
 
-        {/* Card 3: ERA5 vs Sensor Lux */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-purple-50 text-purple-600 rounded-2xl">
-              <Sun className="w-5 h-5" />
+            {/* Card 3: ERA5 vs Sensor Lux */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-2 bg-purple-50 text-purple-600 rounded-2xl">
+                  <Sun className="w-5 h-5" />
+                </div>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-bold border ${strengthLux.badgeBg}`}>
+                  {strengthLux.label}
+                </span>
+              </div>
+              <div className="text-xs font-semibold text-slate-500">Korelasi ERA5 vs Sensor Lux</div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <div className="text-2xl font-black text-slate-900 tracking-tight">
+                  r = {stats.r_lux > 0 ? `+${stats.r_lux}` : stats.r_lux}
+                </div>
+              </div>
+              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <span>R² (Determinasi):</span>
+                <span className="font-mono font-bold text-purple-700">{(stats.r2_lux * 100).toFixed(1)}%</span>
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1 leading-tight">
+                Kesesuaian radiasi satelit dengan sensor fotometrik.
+              </div>
             </div>
-            <span className={`text-xs px-2.5 py-1 rounded-full font-bold border ${strengthLux.badgeBg}`}>
-              {strengthLux.label}
-            </span>
-          </div>
-          <div className="text-xs font-semibold text-slate-500">Korelasi ERA5 vs Sensor Lux</div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
-              r = {stats.r_lux > 0 ? `+${stats.r_lux}` : stats.r_lux}
-            </div>
-          </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <span>R² (Determinasi):</span>
-            <span className="font-mono font-bold text-purple-700">{(stats.r2_lux * 100).toFixed(1)}%</span>
-          </div>
-          <div className="text-[10px] text-slate-400 mt-1 leading-tight">
-            Kesesuaian radiasi satelit dengan sensor fotometrik.
-          </div>
-        </div>
 
-        {/* Card 4: Summary Overview */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between">
+            {/* Card 4: Summary Overview */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-700">Puncak & Data Cocok</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-extrabold bg-blue-100 text-blue-700">
+                    {stats.count} Jam Cocok ({daylightOnly ? 'Siang 06-18' : '24 Jam Penuh'})
+                  </span>
+                </div>
+                <div className="space-y-1.5 text-xs mt-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Puncak ERA5:</span>
+                    <span className="font-mono font-bold text-orange-600">{stats.peak_era5.toFixed(1)} W/m²</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Puncak Daya PV:</span>
+                    <span className="font-mono font-bold text-blue-600">{stats.peak_pv.toFixed(1)} W</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Puncak Lux:</span>
+                    <span className="font-mono font-bold text-purple-600">{stats.peak_lux.toLocaleString()} lx</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-[10px] text-slate-400 border-t border-slate-100 pt-2 mt-2">
+                Rata-rata Radiasi ({daylightOnly ? 'Siang' : '24 Jam'}): <strong>{stats.mean_era5.toFixed(1)} W/m²</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 3: VISUAL COMPARISON CHARTS & SCATTER PLOTS */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-700">Puncak & Data Cocok</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-extrabold bg-blue-100 text-blue-700">
-                {stats.count} Jam Cocok
-              </span>
+            {/* Navigation Tabs between Line Chart and Scatter Plots */}
+            <div className="flex items-center gap-2 mb-3 bg-slate-200/70 p-1.5 rounded-2xl max-w-md">
+              <button
+                onClick={() => setChartViewTab('multi-axis')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                  viewTab === 'multi-axis' || viewTab === 'normalized'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span>Kurva Waktu Per Jam</span>
+              </button>
+              <button
+                onClick={() => setChartViewTab('scatter')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                  viewTab === 'scatter'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Diagram Pencar (Scatter)</span>
+              </button>
             </div>
-            <div className="space-y-1.5 text-xs mt-2">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Puncak ERA5:</span>
-                <span className="font-mono font-bold text-orange-600">{stats.peak_era5.toFixed(1)} W/m²</span>
+
+            {viewTab === 'scatter' ? (
+              <Era5CorrelationScatterCharts alignedData={alignedData} stats={stats} />
+            ) : (
+              <Era5ComparisonChart
+                alignedData={alignedData}
+                timeZone={timeZone}
+                viewMode={viewTab}
+                onViewModeChange={setChartViewTab}
+              />
+            )}
+          </div>
+
+          {/* SECTION 4: METEOROLOGICAL INSIGHT & BMKG SCIENTIFIC INTERPRETATION */}
+          <div className="bg-gradient-to-br from-slate-50 to-blue-50/50 rounded-3xl p-6 border border-slate-200/80 shadow-2xs">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 bg-blue-600 text-white rounded-2xl shadow-sm shrink-0 mt-0.5">
+                <Compass className="w-5 h-5" />
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Puncak Daya PV:</span>
-                <span className="font-mono font-bold text-blue-600">{stats.peak_pv.toFixed(1)} W</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Puncak Lux:</span>
-                <span className="font-mono font-bold text-purple-600">{stats.peak_lux.toLocaleString()} lx</span>
+              <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
+                <h4 className="text-sm font-bold text-slate-900">
+                  Analisis Meteorologi & Verifikasi Satelit ERA5 (Cilacap)
+                </h4>
+                <p>
+                  Berdasarkan hasil penyelarasan data per jam ({stats.count} interval observasi yang tervalidasi):
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-slate-600">
+                  <li>
+                    <strong>Daya Panel Surya (P_PV):</strong> Menunjukkan korelasi linear{' '}
+                    <span className="font-bold text-blue-700">{strengthPv.label.toLowerCase()} (r = {stats.r_pv})</span>{' '}
+                    dengan radiasi satelit ERA5. Nilai R² = {(stats.r2_pv * 100).toFixed(1)}% membuktikan bahwa fluktuasi produksi energi harian panel surya sangat konsisten dengan estimasi model reanalisis atmosfer ECMWF.
+                  </li>
+                  <li>
+                    <strong>Sensor Intensitas Cahaya (Lux):</strong> Memiliki korelasi{' '}
+                    <span className="font-bold text-purple-700">{strengthLux.label.toLowerCase()} (r = {stats.r_lux})</span>{' '}
+                    terhadap radiasi ERA5, mengonfirmasi respon linear sensor fotodioda darat terhadap intensitas radiasi matahari global yang mencapai permukaan tanah di wilayah Cilacap.
+                  </li>
+                  <li>
+                    <strong>Daya Baterai (P_BAT):</strong> Mengikuti tren radiasi satelit dengan r = {stats.r_bat}, menunjukkan sistem SCC (*Solar Charge Controller*) mengalirkan daya sebanding dengan ketersediaan sinar matahari hingga baterai mencapai fase *float/absorb*.
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
-          <div className="text-[10px] text-slate-400 border-t border-slate-100 pt-2 mt-2">
-            Rata-rata Radiasi Siang: <strong>{stats.mean_era5.toFixed(1)} W/m²</strong>
-          </div>
-        </div>
-      </div>
 
-      {/* SECTION 3: VISUAL COMPARISON CHARTS & SCATTER PLOTS */}
-      <div>
-        {/* Navigation Tabs between Line Chart and Scatter Plots */}
-        <div className="flex items-center gap-2 mb-3 bg-slate-200/70 p-1.5 rounded-2xl max-w-md">
-          <button
-            onClick={() => setChartViewTab('multi-axis')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-              viewTab === 'multi-axis' || viewTab === 'normalized'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Kurva Waktu Per Jam</span>
-          </button>
-          <button
-            onClick={() => setChartViewTab('scatter')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-              viewTab === 'scatter'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Diagram Pencar (Scatter)</span>
-          </button>
-        </div>
-
-        {viewTab === 'scatter' ? (
-          <Era5CorrelationScatterCharts alignedData={alignedData} stats={stats} />
-        ) : (
-          <Era5ComparisonChart
+          {/* SECTION 5: HOURLY COMPARISON TABLE & EXPORT */}
+          <Era5ComparisonTable
             alignedData={alignedData}
             timeZone={timeZone}
-            viewMode={viewTab}
-            onViewModeChange={setChartViewTab}
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            availableDates={availableDates}
           />
-        )}
-      </div>
-
-      {/* SECTION 4: METEOROLOGICAL INSIGHT & BMKG SCIENTIFIC INTERPRETATION */}
-      <div className="bg-gradient-to-br from-slate-50 to-blue-50/50 rounded-3xl p-6 border border-slate-200/80 shadow-2xs">
-        <div className="flex items-start gap-3">
-          <div className="p-2.5 bg-blue-600 text-white rounded-2xl shadow-sm shrink-0 mt-0.5">
-            <Compass className="w-5 h-5" />
-          </div>
-          <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
-            <h4 className="text-sm font-bold text-slate-900">
-              Analisis Meteorologi & Verifikasi Satelit ERA5 (Cilacap)
-            </h4>
-            <p>
-              Berdasarkan hasil penyelarasan data per jam ({stats.count} interval observasi yang tervalidasi):
-            </p>
-            <ul className="list-disc list-inside space-y-1 text-slate-600">
-              <li>
-                <strong>Daya Panel Surya (P_PV):</strong> Menunjukkan korelasi linear{' '}
-                <span className="font-bold text-blue-700">{strengthPv.label.toLowerCase()} (r = {stats.r_pv})</span>{' '}
-                dengan radiasi satelit ERA5. Nilai R² = {(stats.r2_pv * 100).toFixed(1)}% membuktikan bahwa fluktuasi produksi energi harian panel surya sangat konsisten dengan estimasi model reanalisis atmosfer ECMWF.
-              </li>
-              <li>
-                <strong>Sensor Intensitas Cahaya (Lux):</strong> Memiliki korelasi{' '}
-                <span className="font-bold text-purple-700">{strengthLux.label.toLowerCase()} (r = {stats.r_lux})</span>{' '}
-                terhadap radiasi ERA5, mengonfirmasi respon linear sensor fotodioda darat terhadap intensitas radiasi matahari global yang mencapai permukaan tanah di wilayah Cilacap.
-              </li>
-              <li>
-                <strong>Daya Baterai (P_BAT):</strong> Mengikuti tren radiasi satelit dengan r = {stats.r_bat}, menunjukkan sistem SCC (*Solar Charge Controller*) mengalirkan daya sebanding dengan ketersediaan sinar matahari hingga baterai mencapai fase *float/absorb*.
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 5: HOURLY COMPARISON TABLE & EXPORT */}
-      <Era5ComparisonTable
-        alignedData={alignedData}
-        timeZone={timeZone}
-        selectedDate={selectedDate}
-        onDateChange={setSelectedDate}
-        availableDates={availableDates}
-      />
+        </>
+      )}
     </div>
   );
 }

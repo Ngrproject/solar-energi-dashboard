@@ -29,7 +29,7 @@ function toHourKey(dateObj) {
 export function parseEra5Csv(csvText, options = {}) {
   const { deaccumulate = true, maxPhysicalFlux = 1400 } = options;
 
-  if (!csvText || typeof csvText !== 'string') return [];
+  if (!csvText || typeof csvText !== 'string' || !csvText.trim()) return [];
 
   const parsed = Papa.parse(csvText, {
     header: true,
@@ -42,7 +42,92 @@ export function parseEra5Csv(csvText, options = {}) {
   const rawRows = parsed.data;
   const records = [];
 
-  // Detect column names flexibly
+  // Check columns of the first row
+  const firstRow = rawRows[0] || {};
+  const lowerKeyMap = {};
+  Object.keys(firstRow).forEach(k => {
+    lowerKeyMap[k.trim().toLowerCase()] = k;
+  });
+
+  // Check if new format (e.g. ERA5Land_Radiasi_Cilacap_... format with explicit waktu_WIB or waktu_UTC)
+  const keyWaktuWib = lowerKeyMap['waktu_wib'];
+  const keyWaktuUtc = lowerKeyMap['waktu_utc'];
+  const keyIrradiansi = Object.keys(firstRow).find(k => k.toLowerCase().includes('irradiansi'));
+  const keyJm2PerJam = Object.keys(firstRow).find(k => k.toLowerCase().includes('per_jam') || k.toLowerCase().includes('radiasi_j_m2'));
+
+  if (keyWaktuWib && (keyIrradiansi || keyJm2PerJam)) {
+    // FORMAT BARU (ERA5-Land preprocessed per jam):
+    // Kolom: waktu_UTC, waktu_WIB, latitude, longitude, radiasi_J_m2_per_jam, irradiansi_rata2_W_m2, energi_radiasi_kWh_m2_per_jam
+    rawRows.forEach((row, idx) => {
+      if (!row || typeof row !== 'object') return;
+
+      const rawWib = row[keyWaktuWib];
+      if (!rawWib) return;
+
+      let w_m2 = 0;
+      if (keyIrradiansi && row[keyIrradiansi] !== undefined && row[keyIrradiansi] !== null) {
+        w_m2 = Math.max(0, parseFloat(row[keyIrradiansi]) || 0);
+      } else if (keyJm2PerJam && row[keyJm2PerJam] !== undefined && row[keyJm2PerJam] !== null) {
+        w_m2 = Math.max(0, (parseFloat(row[keyJm2PerJam]) || 0) / 3600);
+      }
+
+      let rawJm2 = 0;
+      if (keyJm2PerJam && row[keyJm2PerJam] !== undefined && row[keyJm2PerJam] !== null) {
+        rawJm2 = Math.max(0, parseFloat(row[keyJm2PerJam]) || 0);
+      } else {
+        rawJm2 = w_m2 * 3600;
+      }
+
+      if (w_m2 > maxPhysicalFlux) {
+        w_m2 = 0;
+      }
+
+      const wibStr = String(rawWib).trim();
+      const wibDate = new Date(wibStr.replace(' ', 'T') + '+07:00');
+      const wibDateStr = wibStr.substring(0, 10);
+      const wibHourStr = wibStr.substring(11, 13);
+      const wibHour = parseInt(wibHourStr, 10);
+      const wibHourKey = `${wibDateStr} ${wibHourStr}:00`;
+      const wibTimestamp = `${wibDateStr} ${wibHourStr}:${wibStr.length >= 16 ? wibStr.substring(14, 16) : '00'}:00`;
+
+      let utcDate;
+      let utcStr = '';
+      if (keyWaktuUtc && row[keyWaktuUtc]) {
+        utcStr = String(row[keyWaktuUtc]).trim();
+        utcDate = new Date(utcStr.replace(' ', 'T') + 'Z');
+      } else {
+        utcDate = new Date(wibDate.getTime() - 7 * 3600 * 1000);
+        utcStr = utcDate.toISOString().replace('T', ' ').substring(0, 19);
+      }
+
+      const utcDateStr = utcStr.substring(0, 10);
+      const utcHourStr = utcStr.substring(11, 13);
+      const utcHour = parseInt(utcHourStr, 10);
+      const utcHourKey = `${utcDateStr} ${utcHourStr}:00`;
+      const utcTimestamp = `${utcDateStr} ${utcHourStr}:${utcStr.length >= 16 ? utcStr.substring(14, 16) : '00'}:00`;
+
+      records.push({
+        sysIndex: `ROW_${idx}`,
+        raw_j_m2: parseFloat(rawJm2.toFixed(1)),
+        delta_j_m2: parseFloat(rawJm2.toFixed(1)),
+        w_m2: parseFloat(w_m2.toFixed(2)),
+        utcDateObj: utcDate,
+        wibDateObj: wibDate,
+        utcDateStr,
+        wibDateStr,
+        utcHour,
+        wibHour,
+        utcHourKey,
+        wibHourKey,
+        utcTimestamp,
+        wibTimestamp,
+      });
+    });
+
+    return records;
+  }
+
+  // Detect column names flexibly for standard / GEE exports
   let radKey = null;
   let timeKey = null;
   let sysIndexKey = null;
@@ -181,6 +266,7 @@ export function alignHourlyData(sensorLogs = [], era5Records = [], options = {})
 
   // Group sensor logs by corresponding hour key
   const sensorHourly = new Map();
+  const sensorDateSet = new Set();
 
   sensorLogs.forEach((log) => {
     let hourKey = '';
@@ -214,6 +300,7 @@ export function alignHourlyData(sensorLogs = [], era5Records = [], options = {})
     }
 
     if (!hourKey) return;
+    if (dateStr) sensorDateSet.add(dateStr);
 
     if (!sensorHourly.has(hourKey)) {
       sensorHourly.set(hourKey, {
@@ -260,18 +347,48 @@ export function alignHourlyData(sensorLogs = [], era5Records = [], options = {})
 
     // Check if sensor has data for this exact hour
     const sensorBucket = sensorHourly.get(matchKey);
-    if (!sensorBucket || sensorBucket.p_pv.length === 0) {
-      return; // "hanya pada waktu itu": strictly match overlapping timestamps
+    let wattPv = 0;
+    let wattBat = 0;
+    let vPv = 0;
+    let vBat = 0;
+    let lux = 0;
+    let maxWattPv = 0;
+    let maxLux = 0;
+    let sampleCount = 0;
+
+    if (sensorBucket && sensorBucket.p_pv.length > 0) {
+      const avg = (arr) => (arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+      const max = (arr) => (arr.length > 0 ? Math.max(...arr) : 0);
+
+      wattPv = avg(sensorBucket.p_pv);
+      wattBat = avg(sensorBucket.p_bat);
+      vPv = avg(sensorBucket.v_pv);
+      vBat = avg(sensorBucket.v_bat);
+      lux = avg(sensorBucket.lux);
+      maxWattPv = max(sensorBucket.p_pv);
+      maxLux = max(sensorBucket.lux);
+      sampleCount = sensorBucket.p_pv.length;
+    } else {
+      // In daylight mode, skip hours without sensor recordings
+      if (daylightOnly) {
+        return;
+      }
+
+      // In 24h mode: if this date is within the sensor recording period, include night hours
+      // At night (solar irradiance = 0), solar generation is physically 0
+      if (!sensorDateSet.has(dateStr)) {
+        return;
+      }
+
+      wattPv = 0;
+      wattBat = 0;
+      vPv = 0;
+      vBat = 0;
+      lux = 0;
+      maxWattPv = 0;
+      maxLux = 0;
+      sampleCount = 0;
     }
-
-    const avg = (arr) => (arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
-    const max = (arr) => (arr.length > 0 ? Math.max(...arr) : 0);
-
-    const wattPv = avg(sensorBucket.p_pv);
-    const wattBat = avg(sensorBucket.p_bat);
-    const vPv = avg(sensorBucket.v_pv);
-    const vBat = avg(sensorBucket.v_bat);
-    const lux = avg(sensorBucket.lux);
 
     aligned.push({
       timeKey: matchKey,
@@ -288,9 +405,9 @@ export function alignHourlyData(sensorLogs = [], era5Records = [], options = {})
       v_pv: parseFloat(vPv.toFixed(2)),
       v_bat: parseFloat(vBat.toFixed(2)),
       lux: parseFloat(lux.toFixed(1)),
-      max_watt_pv: parseFloat(max(sensorBucket.p_pv).toFixed(2)),
-      max_lux: parseFloat(max(sensorBucket.lux).toFixed(1)),
-      sample_count: sensorBucket.p_pv.length,
+      max_watt_pv: parseFloat(maxWattPv.toFixed(2)),
+      max_lux: parseFloat(maxLux.toFixed(1)),
+      sample_count: sampleCount,
     });
   });
 
