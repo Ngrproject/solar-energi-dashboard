@@ -333,8 +333,12 @@ function parseAndCleanRows(rawRows) {
       : -65;
 
     // Support DUMP_LOAD_PWM (ESP32 integer/string) or load_status
-    const rawLoad = cleanRow.dump_load_pwm ?? cleanRow.load_status;
+    const rawLoad = cleanRow.dump_load_pwm ?? cleanRow.load_status ?? cleanRow.dummy_load ?? cleanRow.dummy_load_pwm;
     const load_status = parseLoadStatus(rawLoad);
+    const matchLoadPwm = String(rawLoad || '').match(/(\d+)/);
+    const dump_load_pwm = typeof rawLoad === 'number'
+      ? rawLoad
+      : (matchLoadPwm ? parseInt(matchLoadPwm[1], 10) : (String(rawLoad || '').toUpperCase().includes('ON') ? 100 : 0));
 
     const sd_status = String(cleanRow.sd_status || 'OK').toUpperCase();
     
@@ -378,7 +382,7 @@ function parseAndCleanRows(rawRows) {
       pv_normalized: parseFloat(pv_normalized.toFixed(1)),
       scc_eff: parseFloat(scc_eff.toFixed(1)),
       load_status,
-      dump_load_pwm: typeof rawLoad === 'number' ? rawLoad : (parseInt(rawLoad, 10) || 0),
+      dump_load_pwm,
       uptime_sec,
       esp_temp: parseFloat(esp_temp.toFixed(1)),
       free_heap,

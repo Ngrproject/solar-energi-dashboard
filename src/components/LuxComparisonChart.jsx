@@ -47,6 +47,13 @@ const METRIC_CONFIG = {
     yAxisName: 'Normalisasi (%)',
     areaColor: 'rgba(2, 132, 199, 0.18)',
   },
+  dump_load_pwm: {
+    name: 'Tingkat Dummy Load (PWM)',
+    unit: '%',
+    color: '#e11d48', // Rose-600
+    yAxisName: 'Dummy Load (%)',
+    areaColor: 'rgba(225, 29, 72, 0.18)',
+  },
 };
 
 function LuxComparisonChart({ logs = [], selectedDate, onDateChange, minDate, maxDate }) {
@@ -67,12 +74,25 @@ function LuxComparisonChart({ logs = [], selectedDate, onDateChange, minDate, ma
 
   const option = useMemo(() => {
     const labels = filteredLogs.map(item => (
-      period === 'harian' 
+      period === 'harian'
         ? (item.wibTimeStr || (item.timestamp && item.timestamp.length >= 16 ? item.timestamp.substring(11, 16) : item.timestamp || ''))
         : (item.wibShortDateStr || item.timestamp || '')
     ));
 
-    const metricData = filteredLogs.map(item => item[metricKey] || 0);
+    const metricData = filteredLogs.map(item => {
+      if (metricKey === 'dump_load_pwm') {
+        if (item.dump_load_pwm !== undefined && item.dump_load_pwm !== null && !isNaN(item.dump_load_pwm)) {
+          return item.dump_load_pwm;
+        }
+        if (item.load_status) {
+          const match = String(item.load_status).match(/(\d+)/);
+          if (match) return parseInt(match[1], 10);
+          if (String(item.load_status).toUpperCase().includes('ON')) return 100;
+        }
+        return 0;
+      }
+      return item[metricKey] || 0;
+    });
     const luxData = filteredLogs.map(item => item.lux_val || 0);
 
     return {
@@ -92,7 +112,8 @@ function LuxComparisonChart({ logs = [], selectedDate, onDateChange, minDate, ma
             if (p.seriesName.includes('Lux')) {
               rel += `${p.marker} ${p.seriesName}: <b>${Number(p.value).toLocaleString('id-ID')} lx</b><br/>`;
             } else {
-              rel += `${p.marker} ${p.seriesName}: <b>${p.value} ${activeConfig.unit}</b><br/>`;
+              const unitSuffix = activeConfig.unit === '%' ? '%' : ` ${activeConfig.unit}`;
+              rel += `${p.marker} ${p.seriesName}: <b>${p.value}${unitSuffix}</b><br/>`;
             }
           });
           return rel;
@@ -124,7 +145,13 @@ function LuxComparisonChart({ logs = [], selectedDate, onDateChange, minDate, ma
           name: activeConfig.yAxisName,
           nameTextStyle: { color: activeConfig.color, fontWeight: 'bold' },
           splitLine: { lineStyle: { color: '#f1f5f9' } },
-          axisLabel: { color: '#64748b', fontFamily: 'JetBrains Mono' }
+          min: activeConfig.unit === '%' ? 0 : undefined,
+          max: activeConfig.unit === '%' ? 100 : undefined,
+          axisLabel: {
+            color: '#64748b',
+            fontFamily: 'JetBrains Mono',
+            formatter: activeConfig.unit === '%' ? '{value}%' : '{value}'
+          }
         },
         {
           type: 'value',
@@ -223,6 +250,7 @@ function LuxComparisonChart({ logs = [], selectedDate, onDateChange, minDate, ma
               <option value="v_pv">Tegangan PV (V_PV Volt)</option>
               <option value="v_bat">Tegangan Baterai (V_BAT Volt)</option>
               <option value="pv_normalized">Normalisasi PV (PV_NORMALIZED %)</option>
+              <option value="dump_load_pwm">Tingkat Dummy Load (PWM %)</option>
               <option value="sunshine_hours_daily">Lama Penyinaran (Jam)</option>
             </select>
           </div>
